@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тесты тренажёра</title>
+<style>
+  :root { --bg:#f6f7fb; --fg:#1d2233; --ok:#16a34a; --bad:#dc2626; --card:#fff; --muted:#667; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14161f; --fg:#e7e9f2; --card:#1e2130; --muted:#99a; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  h1 { margin:0 0 4px; font-size:22px; }
+  h2 { margin:24px 0 8px; font-size:18px; }
+  .summary { font-size:17px; font-weight:600; margin:8px 0 16px; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:#d97706; }
+  details { background:var(--card); border-radius:8px; margin:4px 0; padding:6px 10px; }
+  summary { cursor:pointer; }
+  pre { background:rgba(127,127,127,.12); padding:8px; border-radius:6px; overflow:auto; font:13px/1.4 ui-monospace, Menlo, Consolas, monospace; margin:6px 0; }
+  .muted { color:var(--muted); }
+  label { user-select:none; }
+</style>
+</head>
+<body>
+<h1>Тесты тренажёра</h1>
+<p class="muted">Откройте этот файл в браузере. Сначала проверяется интерпретатор, затем все задачи и уровни (их ответы считаются интерпретатором).</p>
+<label><input type="checkbox" id="onlyFail" checked> Показывать только ошибки</label>
+<div id="total" class="summary"></div>
+<div id="out"></div>
+
+<script src="data/config.js?v=20261028b"></script>
+<script src="js/i18n.js?v=20261028b"></script>
+<script src="data/tasks.js?v=20261028b"></script>
+<script src="data/levels.js?v=20261028b"></script>
+<script src="data/quiz.js?v=20261028b"></script>
+<script src="js/engine.js?v=20261028b"></script>
+<script src="js/flowchart.js?v=20261028b"></script>
+<script src="js/games/robot.js?v=20261028b"></script>
+<script src="js/games/truefalse.js?v=20261028b"></script>
+<script src="js/games/count.js?v=20261028b"></script>
+<script src="js/games/turtle.js?v=20261028b"></script>
+<script src="js/games/tracer.js?v=20261028b"></script>
+<script src="js/games/memory.js?v=20261028b"></script>
+<script src="js/games/quiz.js?v=20261028b"></script>
+<script src="js/games/duel.js?v=20261028b"></script>
+<script src="js/games/minesweeper.js?v=20261028b"></script>
+<script src="js/games/bazaar.js?v=20261028b"></script>
+<script>
+// ------------------------------------------------------------------ тесты интерпретатора
+// out — ожидаемый вывод (точно), err — подстрока ожидаемой ошибки
+const ENGINE_TESTS = [
+  // --- типы и арифметика
+  { name: 'int и print', code: 'print(5)', out: '5\n' },
+  { name: 'сложение и приоритет', code: 'print(2 + 3 * 4)', out: '14\n' },
+  { name: 'скобки', code: 'print((2 + 3) * 4)', out: '20\n' },
+  { name: 'деление даёт float', code: 'print(7 / 2)\nprint(6 / 2)', out: '3.5\n3.0\n' },
+  { name: 'целочисленное деление', code: 'print(7 // 2)\nprint(-7 // 2)', out: '3\n-4\n' },
+  { name: 'остаток как в Python', code: 'print(10 % 3)\nprint(-7 % 3)\nprint(7 % -3)', out: '1\n2\n-2\n' },
+  { name: 'степень', code: 'print(2 ** 10)\nprint(-2 ** 2)\nprint(2 ** -1)', out: '1024\n-4\n0.5\n' },
+  { name: 'float арифметика', code: 'print(0.1 + 0.2)\nprint(1.5 * 2)', out: '0.30000000000000004\n3.0\n' },
+  { name: 'строки: + и *', code: 'print("ab" + "cd")\nprint("ха" * 3)', out: 'abcd\nхахаха\n' },
+  { name: 'bool и None', code: 'print(True, False, None)\nprint(True + 1)', out: 'True False None\n2\n' },
+  { name: 'составное присваивание', code: 'x = 10\nx += 5\nx -= 3\nx *= 2\nx //= 5\nx %= 3\nprint(x)', out: '1\n' },
+  { name: 'унарный минус', code: 'x = 5\nprint(-x)\nprint(- -x)', out: '-5\n5\n' },
+  { name: 'множественное присваивание', code: 'a, b = 1, 2\na, b = b, a\nprint(a, b)', out: '2 1\n' },
+  { name: 'цепочка присваиваний', code: 'a = b = 7\nprint(a + b)', out: '14\n' },
+  // --- print
+  { name: 'print sep и end', code: 'print(1, 2, 3, sep="-")\nprint("a", end="")\nprint("b")', out: '1-2-3\nab\n' },
+  { name: 'print без аргументов', code: 'print()\nprint("x")', out: '\nx\n' },
+  { name: 'f-строка', code: 'name = "Айгерим"\nx = 3\nprint(f"Привет, {name}! {x * 2}")', out: 'Привет, Айгерим! 6\n' },
+  { name: 'f-строка формат .2f', code: 'p = 2 / 3\nprint(f"{p:.2f}")', out: '0.67\n' },
+  // --- встроенные функции
+  { name: 'input и int', code: 'a = int(input())\nb = int(input())\nprint(a + b)', inputs: ['3', '4'], out: '7\n' },
+  { name: 'input строка', code: 'name = input()\nprint("Привет,", name)', inputs: ['Бакыт'], out: 'Привет, Бакыт\n' },
+  { name: 'str, len, abs', code: 'print(str(5) + "!")\nprint(len("привет"))\nprint(abs(-7))', out: '5!\n6\n7\n' },
+  { name: 'min, max', code: 'print(min(4, 2, 9))\nprint(max(4, 2, 9))\nprint(max("abc"))', out: '2\n9\nc\n' },
+  { name: 'int от float и строки с пробелами', code: 'print(int(7.9))\nprint(int(" -3 "))', out: '7\n-3\n' },
+  { name: 'round банковский', code: 'print(round(2.5))\nprint(round(3.5))\nprint(round(3.14159, 2))', out: '2\n4\n3.14\n' },
+  { name: 'len эмодзи', code: 'print(len("💎👹"))', out: '2\n' },
+  // --- сравнения и логика
+  { name: 'сравнения', code: 'print(3 > 2, 3 == 3.0, 2 != 2, "a" < "b")', out: 'True True False True\n' },
+  { name: 'цепочка сравнений', code: 'x = 5\nprint(0 < x < 10)\nprint(0 < x < 3)', out: 'True\nFalse\n' },
+  { name: 'and / or / not', code: 'print(True and False)\nprint(True or False)\nprint(not True)\nprint(not 0)', out: 'False\nTrue\nFalse\nTrue\n' },
+  { name: 'and/or возвращают операнд', code: 'print(0 or "пусто")\nprint(5 and 7)', out: 'пусто\n7\n' },
+  { name: 'приоритет not > and > or', code: 'print(True or True and False)\nprint(not False and False)', out: 'True\nFalse\n' },
+  { name: 'in для строк', code: 'print("а" in "мама")\nprint("я" not in "мама")', out: 'True\nTrue\n' },
+  { name: 'тернарный оператор', code: 'x = 4\nprint("чёт" if x % 2 == 0 else "нечёт")', out: 'чёт\n' },
+  // --- if / elif / else
+  { name: 'if истина', code: 'x = 7\nif x > 5:\n    print("больше")', out: 'больше\n' },
+  { name: 'if ложь', code: 'x = 3\nif x > 5:\n    print("больше")\nprint("конец")', out: 'конец\n' },
+  { name: 'if/else', code: 'x = 3\nif x > 5:\n    print("да")\nelse:\n    print("нет")', out: 'нет\n' },
+  { name: 'elif — первая истинная ветка', code: 's = 95\nif s >= 90:\n    print(5)\nelif s >= 70:\n    print(4)\nelse:\n    print(3)', out: '5\n' },
+  { name: 'elif — порядок условий (ловушка)', code: 's = 95\nif s >= 50:\n    print("удовл")\nelif s >= 90:\n    print("отл")', out: 'удовл\n' },
+  { name: 'вложенные if', code: 'a = 7\nb = 3\nif a > b:\n    if a % 2 == 0:\n        print("Ловушка 💀")\n    else:\n        print("Сокровище 💎")\nelse:\n    print("Монстр 👹")', out: 'Сокровище 💎\n' },
+  { name: 'if в одну строку', code: 'x = 1\nif x: print("да")', out: 'да\n' },
+  { name: 'отступ 2 пробела тоже работает', code: 'if True:\n  print(1)\n  print(2)', out: '1\n2\n' },
+  { name: 'комментарии и пустые строки', code: '# старт\nx = 1  # один\n\n\nprint(x)  # вывод', out: '1\n' },
+  // --- for и range
+  { name: 'range(n)', code: 'for i in range(3):\n    print(i)', out: '0\n1\n2\n' },
+  { name: 'range(a, b) не включает b', code: 'for i in range(1, 4):\n    print(i, end=" ")', out: '1 2 3 ' },
+  { name: 'range с шагом', code: 'for i in range(2, 9, 3):\n    print(i)', out: '2\n5\n8\n' },
+  { name: 'range с отрицательным шагом', code: 'for i in range(5, 0, -2):\n    print(i)', out: '5\n3\n1\n' },
+  { name: 'пустой range', code: 'for i in range(5, 1):\n    print(i)\nprint("ок")', out: 'ок\n' },
+  { name: 'for по строке', code: 'for ch in "кот":\n    print(ch)', out: 'к\nо\nт\n' },
+  { name: 'сумма в цикле', code: 's = 0\nfor i in range(1, 11):\n    s += i\nprint(s)', out: '55\n' },
+  { name: 'print внутри и после цикла', code: 's = 0\nfor i in range(3):\n    s += i\n    print(s)\nprint("итог", s)', out: '0\n1\n3\nитог 3\n' },
+  { name: 'вложенные циклы', code: 'c = 0\nfor i in range(3):\n    for j in range(4):\n        c += 1\nprint(c)', out: '12\n' },
+  { name: 'переменная цикла после цикла', code: 'for i in range(4):\n    pass\nprint(i)', out: '3\n' },
+  { name: 'for по списку', code: 'for x in [3, 1, 2]:\n    print(x * 10)', out: '30\n10\n20\n' },
+  // --- while
+  { name: 'while (пример из задания)', code: 'energy = 10\nsteps = 0\nwhile energy > 0:\n    energy = energy - 3\n    steps = steps + 1\nprint(steps)', out: '4\n' },
+  { name: 'while не выполняется ни разу', code: 'x = 0\nwhile x > 0:\n    x -= 1\nprint("ок")', out: 'ок\n' },
+  { name: 'while с break', code: 'n = 0\nwhile True:\n    n += 1\n    if n == 5:\n        break\nprint(n)', out: '5\n' },
+  { name: 'while цифры числа', code: 'n = 1234\ns = 0\nwhile n > 0:\n    s += n % 10\n    n //= 10\nprint(s)', out: '10\n' },
+  // --- break / continue
+  { name: 'break в for', code: 'for i in range(10):\n    if i == 3:\n        break\n    print(i)', out: '0\n1\n2\n' },
+  { name: 'continue в for', code: 'for i in range(6):\n    if i % 2 == 0:\n        continue\n    print(i)', out: '1\n3\n5\n' },
+  { name: 'break только из внутреннего цикла', code: 'for i in range(3):\n    for j in range(3):\n        if j == 1:\n            break\n        print(i, j)', out: '0 0\n1 0\n2 0\n' },
+  { name: 'continue в while', code: 'i = 0\nwhile i < 5:\n    i += 1\n    if i == 3:\n        continue\n    print(i)', out: '1\n2\n4\n5\n' },
+  // --- циклы + условия
+  { name: 'проверка на простое', code: 'n = 29\nprime = True\nfor d in range(2, n):\n    if n % d == 0:\n        prime = False\n        break\nprint(prime)', out: 'True\n' },
+  { name: 'поиск максимума', code: 'mx = 0\nfor x in [4, 9, 2, 7]:\n    if x > mx:\n        mx = x\nprint(mx)', out: '9\n' },
+  { name: 'счётчик чётных', code: 'c = 0\nfor i in range(1, 21):\n    if i % 2 == 0 and i % 3 != 0:\n        c += 1\nprint(c)', out: '7\n' },
+  { name: 'строки: индекс и срез', code: 's = "Python"\nprint(s[0], s[-1])\nprint(s[1:4])\nprint(s[::-1])', out: 'P n\nyth\nnohtyP\n' },
+  { name: 'методы строк', code: 'print("Да".lower(), "да".upper())\nprint("12".isdigit())', out: 'да ДА\nTrue\n' },
+  { name: 'список append и len', code: 'a = []\nfor i in range(3):\n    a.append(i * i)\nprint(a, len(a))', out: '[0, 1, 4] 3\n' },
+  // --- ошибки с понятными сообщениями
+  { name: 'ошибка: = вместо ==', code: 'x = 5\nif x = 5:\n    print(x)', err: 'Строка 2: для сравнения используйте ==, а не =' },
+  { name: 'ошибка: = вместо == в while', code: 'x = 5\nwhile x = 0:\n    x -= 1', err: 'Строка 2: для сравнения используйте ==' },
+  { name: 'ошибка: неопределённая переменная', code: 'x = 1\ny = 2\nprint(x)\nprint(y)\nprint(score)', err: 'Строка 5: переменная score не определена' },
+  { name: 'ошибка: лишний отступ', code: 'x = 1\n    print(x)', err: 'Строка 2: неверный отступ' },
+  { name: 'ошибка: неверный отступ при выходе из блока', code: 'if True:\n    x = 1\n  print(x)', err: 'Строка 3: неверный отступ' },
+  { name: 'ошибка: нет отступа после if', code: 'x = 1\nif x > 0:\nprint(x)', err: 'Строка 3: после строки с двоеточием нужен блок с отступом' },
+  { name: 'ошибка: забыли двоеточие', code: 'x = 1\nif x > 0\n    print(x)', err: 'Строка 2: в конце строки с if нужно двоеточие' },
+  { name: 'ошибка: бесконечный цикл', code: 'i = 0\nwhile i < 10:\n    print(i)', err: 'бесконечный цикл' },
+  { name: 'ошибка: строка + число', code: 'age = input()\nprint(age + 1)', inputs: ['14'], err: 'Строка 2: нельзя сложить str и int' },
+  { name: 'ошибка: сравнение строки с числом', code: 'x = input()\nif x > 5:\n    print(x)', inputs: ['7'], err: 'забыли int(input())' },
+  { name: 'ошибка: деление на ноль', code: 'x = 0\nprint(10 / x)', err: 'Строка 2: деление на ноль' },
+  { name: 'ошибка: else без if', code: 'x = 1\nelse:\n    print(x)', err: 'Строка 2: else без if' },
+  { name: 'ошибка: else if', code: 'x = 1\nif x > 1:\n    pass\nelse if x == 1:\n    pass', err: 'elif' },
+  { name: 'ошибка: незакрытая скобка', code: 'print("привет"', err: 'не закрыта скобка' },
+  { name: 'ошибка: незакрытая строка', code: 'print("привет)', err: 'Строка 1: строка не закрыта' },
+  { name: 'ошибка: print без скобок', code: 'print "hi"', err: 'print — это функция' },
+  { name: 'ошибка: true с маленькой буквы', code: 'x = true', err: 'True с большой буквы' },
+  { name: 'ошибка: Print с большой буквы', code: 'Print(5)', err: 'может быть, print?' },
+  { name: 'ошибка: break вне цикла', code: 'x = 1\nbreak', err: 'Строка 2: break можно использовать только внутри цикла' },
+  { name: 'ошибка: не хватило input', code: 'a = input()\nb = input()', inputs: ['1'], err: 'не хватило входных данных' },
+  { name: 'ошибка: int("abc")', code: 'x = int("abc")', err: "не может превратить 'abc'" },
+  { name: 'ошибка: for по числу', code: 'for i in 10:\n    print(i)', err: 'range(10)' },
+  { name: 'ошибка: && вместо and', code: 'x = 1\nif x > 0 && x < 5:\n    pass', err: 'вместо && пишут and' },
+  { name: 'ошибка: def не поддерживается', code: 'def f():\n    pass', err: 'не поддерживается' },
+];
+
+// --- тесты API: подключаемые функции, пошаговый режим, evalExpr
+const API_TESTS = [
+  { name: 'подключаемые функции игры', fn() {
+      let pos = 0;
+      const r = Py.run('for i in range(3):\n    forward()\nprint(pos())', { builtins: { forward() { pos++; }, pos() { return pos; } } });
+      return r.ok && r.output === '3\n' && pos === 3;
+  } },
+  { name: 'датчик возвращает True/False', fn() {
+      let x = 0;
+      const r = Py.run('while not wall_ahead():\n    forward()\nprint(x())', { builtins: { wall_ahead: () => x >= 4, forward() { x++; }, x: () => x } });
+      return r.ok && r.output === '4\n';
+  } },
+  { name: 'ошибка из функции игры с номером строки', fn() {
+      const r = Py.run('forward()\nforward()', { builtins: { forward() { throw new Error('Робот врезался в стену!'); } } });
+      return !r.ok && r.error === 'Строка 1: Робот врезался в стену!';
+  } },
+  { name: 'пошаговый режим: номера строк', fn() {
+      const lines = [];
+      for (const s of Py.steps('x = 1\nfor i in range(2):\n    x += i\nprint(x)')) lines.push(s.line);
+      return lines.join(',') === '1,2,3,2,3,4';
+  } },
+  { name: 'пошаговый режим: снимок переменных', fn() {
+      const snaps = [];
+      for (const s of Py.steps('s = 0\nfor i in range(3):\n    s += i')) snaps.push(s.vars);
+      const last = snaps[snaps.length - 1];
+      return last.s === '3' && last.i === '2' && snaps[0].s === '0';
+  } },
+  { name: 'пошаговый режим: вывод на шаге', fn() {
+      const outs = [];
+      for (const s of Py.steps('print(1)\nprint(2)')) outs.push(s.out);
+      return outs[0] === '1\n' && outs[1] === '1\n2\n';
+  } },
+  { name: 'run с trace', fn() {
+      const r = Py.run('a = 5\nif a > 3:\n    print("да")', { trace: true });
+      return r.trace.map(t => t.line).join(',') === '1,2,3';
+  } },
+  { name: 'лимит шагов настраивается', fn() {
+      const r = Py.run('for i in range(100):\n    pass', { maxSteps: 50 });
+      return !r.ok && /бесконечный цикл/.test(r.error);
+  } },
+  { name: 'evalExpr с переменными', fn() {
+      return Py.evalExpr('x > 5 and x % 2 == 0', { x: 8 }) === true && Py.evalExpr('x > 5 and x % 2 == 0', { x: 7 }) === false;
+  } },
+  { name: 'evalExpr: row, col', fn() {
+      return Py.evalExpr('(row + col) % 2 == 0 and n > 10', { row: 1, col: 3, n: 12 }) === true;
+  } },
+  { name: 'check: синтаксическая ошибка', fn() {
+      const e = Py.check('if x > 1\n    pass');
+      return e && e.line === 1 && Py.check('x = 1') === null;
+  } },
+  { name: 'sameOutput игнорирует пробелы в конце', fn() {
+      return Py.sameOutput('1 2 \n3\n\n', '1 2\n3') && !Py.sameOutput('1 2', '12');
+  } },
+  { name: 'вывод сохраняется при ошибке', fn() {
+      const r = Py.run('print("до")\nx = y');
+      return !r.ok && r.output === 'до\n' && r.errorLine === 2;
+  } },
+];
+
+// ------------------------------------------------------------------ запуск
+const sections = [];
+
+function section(title) {
+  const s = { title, items: [] };
+  sections.push(s);
+  return s;
+}
+
+function runEngineTests() {
+  const s = section('Интерпретатор: выполнение и ошибки (' + ENGINE_TESTS.length + ')');
+  for (const t of ENGINE_TESTS) {
+    const r = Py.run(t.code, { inputs: t.inputs || [] });
+    let ok, detail;
+    if (t.err) {
+      ok = !r.ok && r.error.includes(t.err);
+      detail = 'Ожидалась ошибка: ' + t.err + '\nПолучено: ' + (r.error || 'без ошибки, вывод: ' + JSON.stringify(r.output));
+    } else {
+      ok = r.ok && r.output === t.out;
+      detail = 'Ожидалось: ' + JSON.stringify(t.out) + '\nПолучено: ' + (r.ok ? JSON.stringify(r.output) : r.error);
+    }
+    s.items.push({ name: t.name, ok, code: t.code, detail });
+  }
+  const a = section('Интерпретатор: API для игр (' + API_TESTS.length + ')');
+  for (const t of API_TESTS) {
+    let ok = false, detail = '';
+    try { ok = !!t.fn(); } catch (e) { detail = String(e && e.stack || e); }
+    a.items.push({ name: t.name, ok, detail });
+  }
+}
+
+// Проверки задач и уровней: каждая функция получает section(title) и добавляет результаты
+const DATA_CHECKS = [checkTasks, checkRobot, checkTrueFalse, checkCount, checkTurtle, checkTracer, checkMemory, checkQuiz, checkDuel, checkMines, checkBazaar];
+
+function checkTrueFalse(section) {
+  const s = section('Истина или Ложь: генератор условий');
+  for (let stage = 0; stage <= 3; stage++) {
+    let trues = 0, errs = [];
+    const sample = [];
+    for (let k = 0; k < 400; k++) {
+      try {
+        const q = TrueFalseGen.gen(stage);
+        if (q.answer !== Py.truthy(Py.evalExpr(q.expr, q.vars))) errs.push('ответ не совпадает: ' + q.expr);
+        if (q.answer) trues++;
+        if (k < 4) sample.push(JSON.stringify(q.vars) + '  ' + q.expr + '  →  ' + q.explain);
+      } catch (e) { errs.push(String(e.message || e)); }
+    }
+    const share = trues / 400;
+    if (share < 0.35 || share > 0.65) errs.push('доля True ' + share.toFixed(2) + ' — нужно примерно поровну');
+    s.items.push({ name: 'Этап ' + stage + ': 400 условий, True ' + Math.round(share * 100) + '%', ok: !errs.length, detail: errs.slice(0, 3).concat(sample).join('\n') });
+  }
+}
+
+function checkCount(section) {
+  const s = section('Сколько раз?: генератор вопросов');
+  for (let q = 0; q < 10; q++) {
+    const errs = [], kinds = { count: 0, last: 0 }, sample = [];
+    for (let k = 0; k < 150; k++) {
+      try {
+        const g = CountGen.gen(q);
+        const r = Py.run(g.code);
+        const lines = r.output.replace(/\n$/, '').split('\n');
+        const expect = g.kind === 'count' ? String(lines.length) : lines[lines.length - 1];
+        if (!r.ok || expect !== g.answer) errs.push('неверный ответ для\n' + g.code);
+        kinds[g.kind]++;
+        if (k < 2) sample.push(g.code + '\n→ ' + g.question + ' ' + g.answer);
+      } catch (e) { errs.push(String(e.message || e)); }
+    }
+    s.items.push({ name: 'Вопрос ' + (q + 1) + ' (уровень ' + CountGen.levelFor(q) + '): 150 генераций, «сколько» ' + kinds.count + ' / «последнее» ' + kinds.last, ok: !errs.length && kinds.count > 0, detail: errs.slice(0, 2).concat(sample).join('\n\n') });
+  }
+}
+
+function checkTurtle(section) {
+  const L = LEVELS.turtle || [];
+  const s = section('Черепашка: уровни (' + L.length + ', нужно 15)');
+  s.items.push({ name: 'количество уровней = 15', ok: L.length === 15 });
+  L.forEach((lv, i) => {
+    const errs = [], info = [];
+    const st = TurtleSim.levelStart(lv);
+    const r = TurtleSim.execute(lv.solution, st);
+    if (r.error) errs.push('эталон падает: ' + r.error.message);
+    const b = TurtleSim.bbox(r.T.segs);
+    info.push('отрезков: ' + r.T.segs.length + ', рамка ' + Math.round(b.x2 - b.x1) + '×' + Math.round(b.y2 - b.y1));
+    if (b.x1 < -195 || b.x2 > 195 || b.y1 < -195 || b.y2 > 195) errs.push('рисунок не помещается на холст 400×400');
+    if (TurtleSim.countLines(lv.solution) > lv.maxLines) errs.push('эталон длиннее maxLines');
+    if (!TurtleSim.compare(r.T.segs, r.T.segs, { colors: lv.colors }).ok) errs.push('эталон не совпадает сам с собой');
+    // неверный рисунок не должен засчитываться: убираем заметный (от 20 шагов) отрезок без дубля
+    const same = (a, b) => Math.hypot(a.x1 - b.x1, a.y1 - b.y1) + Math.hypot(a.x2 - b.x2, a.y2 - b.y2) < 1 || Math.hypot(a.x1 - b.x2, a.y1 - b.y2) + Math.hypot(a.x2 - b.x1, a.y2 - b.y1) < 1;
+    const k = r.T.segs.findIndex((x, j) => Math.hypot(x.x2 - x.x1, x.y2 - x.y1) >= 20 && !r.T.segs.some((y, m) => m !== j && same(x, y)));
+    if (k >= 0 && r.T.segs.length > 1 && TurtleSim.compare(r.T.segs.filter((_, j) => j !== k), r.T.segs, { colors: lv.colors }).ok) errs.push('проверка засчитала рисунок без отрезка №' + (k + 1));
+    s.items.push({ name: (i + 1) + '. ' + lv.title, ok: !errs.length, code: lv.solution, detail: errs.concat(info).join('\n') });
+  });
+  // сравнение не зависит от того, как разбиты линии
+  const split = TurtleSim.execute('forward(50)\nforward(50)').T.segs, whole = TurtleSim.execute('forward(100)').T.segs;
+  s.items.push({ name: 'forward(50) два раза = forward(100)', ok: TurtleSim.compare(split, whole).ok });
+  const red = TurtleSim.execute('color("red")\nforward(100)').T.segs;
+  s.items.push({ name: 'цвет проверяется, если colors: true', ok: !TurtleSim.compare(whole, red, { colors: true }).ok && TurtleSim.compare(whole, red).ok });
+  s.items.push({ name: 'другой угол квадрата не засчитывается', ok: !TurtleSim.compare(TurtleSim.execute('for i in range(4):\n    forward(100)\n    right(90)').T.segs, TurtleSim.execute('for i in range(4):\n    forward(100)\n    left(90)').T.segs).ok });
+}
+
+function checkTracer(section) {
+  const L = LEVELS.tracer || [];
+  const s = section('Ты — компьютер: уровни (' + L.length + ')');
+  L.forEach((lv, i) => {
+    const errs = [];
+    const T = TracerSim.rows(lv.code, lv.vars);
+    if (!T.ok) errs.push('код падает: ' + T.error);
+    if (T.rows.length < 3 || T.rows.length > 10) errs.push('строк в таблице ' + T.rows.length + ' — нужно от 3 до 10');
+    T.rows.forEach((r, k) => r.forEach((v, c) => { if (v === '') errs.push('проход ' + (k + 1) + ': переменная ' + lv.vars[c] + ' ещё не определена'); }));
+    const table = T.rows.map((r, k) => (k + 1) + ': ' + lv.vars.map((v, c) => v + '=' + r[c]).join(', ')).join('\n');
+    s.items.push({ name: (i + 1) + '. ' + lv.title + ' — строк ' + T.rows.length, ok: !errs.length, code: lv.code, detail: errs.concat([table]).join('\n') });
+  });
+  s.items.push({ name: 'сравнение ответов: 10 = 10.0? нет; " 7 " = 7; abc = \'abc\'', ok: TracerSim.same(' 7 ', '7') && TracerSim.same('abc', "'abc'") && !TracerSim.same('8', '7') && TracerSim.same('-2', '-2') });
+}
+
+function checkMemory(section) {
+  const s = section('Мемори: генератор пар');
+  for (const set of MemoryGen.SETS) for (const n of [6, 8]) {
+    const errs = [];
+    let sample = '';
+    for (let k = 0; k < 60; k++) {
+      const ps = MemoryGen.pairs(set, n);
+      if (ps.length !== n) { errs.push('получено пар: ' + ps.length + ' из ' + n); break; }
+      if (new Set(ps.map(p => p.b)).size !== n || new Set(ps.map(p => p.a)).size !== n) errs.push('повторяются карточки');
+      if (k === 0) sample = ps.map(p => p.a.replace(/\n/g, ' ⏎ ') + '  ↔  ' + p.b).join('\n');
+    }
+    s.items.push({ name: set + ': ' + n + ' пар × 60 раздач', ok: !errs.length, detail: errs.slice(0, 2).concat([sample]).join('\n') });
+  }
+  // равносильность пар в наборе «Логика» на x от -20 до 20
+  const bad = MemoryGen.LOGIC.filter(([a, b, eq]) => {
+    for (let x = -20; x <= 20; x++) if (Py.truthy(Py.evalExpr(a, { x })) !== Py.truthy(Py.evalExpr(eq || b, { x }))) return true;
+    return false;
+  });
+  s.items.push({ name: 'Логика: все ' + MemoryGen.LOGIC.length + ' пар действительно равносильны', ok: !bad.length, detail: bad.map(p => p[0] + ' ≠ ' + p[1]).join('\n') });
+}
+
+function checkQuiz(section) {
+  const s = section('Викторина: банк вопросов (' + QUIZ.length + ', нужно 45+)');
+  s.items.push({ name: 'вопросов не меньше 45', ok: QUIZ.length >= 45 });
+  for (let tier = 1; tier <= 5; tier++) {
+    const n = QUIZ.filter(q => q.tier === tier).length;
+    s.items.push({ name: 'уровень ' + tier + ': ' + n + ' вопросов (нужно ≥ 3, чтобы собрать игру)', ok: n >= 3 });
+  }
+  let auto = 0;
+  QUIZ.forEach((q, i) => {
+    const errs = [];
+    if (!q.q || !q.explain || q.options.length !== 4 || !(q.answer >= 0 && q.answer < 4)) errs.push('нужны q, explain, 4 варианта и answer 0..3');
+    if (new Set(q.options).size !== 4) errs.push('варианты повторяются');
+    if (q.code) {
+      const r = Py.run(q.code, { inputs: q.inputs || [] });
+      if (!r.ok) errs.push('код падает: ' + r.error);
+      if (q.check) {
+        auto++;
+        const lines = r.output.replace(/\n$/, '').split('\n');
+        const got = q.check === 'count' ? String(lines.length) : r.output.trim().split(/\s+/).join(' ');
+        if (got !== q.options[q.answer]) errs.push('верный вариант «' + q.options[q.answer] + '», а интерпретатор даёт «' + got + '»');
+        q.options.forEach((o, k) => { if (k !== q.answer && o === got) errs.push('неверный вариант совпадает с ответом: ' + o); });
+      }
+    }
+    s.items.push({ name: (i + 1) + '. [ур. ' + q.tier + '] ' + q.q + (q.check ? ' ✓ интерпретатор' : ''), ok: !errs.length, code: q.code, detail: errs.join('\n') });
+  });
+  s.title += ' — проверено интерпретатором: ' + auto;
+  // выбор 15 вопросов: варианты перемешиваются, верный ответ сохраняется
+  let okPick = true;
+  for (let k = 0; k < 30; k++) {
+    const qs = QuizGame.pick(QUIZ);
+    if (qs.length !== 15) okPick = false;
+    qs.forEach((q, i) => {
+      const orig = QUIZ.find(x => x.q === q.q && x.code === q.code);
+      if (q.tier !== Math.floor(i / 3) + 1 || q.options[q.answer] !== orig.options[orig.answer]) okPick = false;
+    });
+  }
+  s.items.push({ name: 'игра: 15 вопросов по нарастающей, перемешанные варианты сохраняют верный ответ', ok: okPick });
+}
+
+function checkDuel(section) {
+  const s = section('Дуэль: генератор заданий');
+  for (const ty of Object.keys(DuelGen.MAKERS)) {
+    const errs = [];
+    let sample = '';
+    for (let k = 0; k < 80; k++) {
+      const q = DuelGen.MAKERS[ty](new Set());
+      if (!q) { errs.push('не удалось создать задание'); break; }
+      if (q.options.length < 2 || q.options.length > 4) errs.push('вариантов ' + q.options.length);
+      if (new Set(q.options).size !== q.options.length) errs.push('варианты повторяются: ' + q.options.join(' | '));
+      if (!(q.answer >= 0 && q.answer < q.options.length)) errs.push('нет верного ответа');
+      // перепроверяем ответ интерпретатором
+      if (ty === 'tf' || ty === 'output') {
+        const r = Py.run(q.code);
+        const got = r.output.trim().split(/\s+/).join(' ');
+        if (got !== q.options[q.answer]) errs.push('ответ «' + q.options[q.answer] + '», а программа выводит «' + got + '»');
+      }
+      if (ty === 'count') {
+        const lines = Py.run(q.code).output.replace(/\n$/, '').split('\n');
+        const right = q.title.includes('последним') ? lines[lines.length - 1] : String(lines.length);
+        if (right !== q.options[q.answer]) errs.push('ответ «' + q.options[q.answer] + '», а должно быть «' + right + '»');
+      }
+      if (k === 0) sample = q.title + '\n' + q.code + '\n' + q.options.map((o, i) => (i === q.answer ? '✔ ' : '  ') + o).join('\n');
+    }
+    s.items.push({ name: ty + ': 80 заданий', ok: !errs.length, detail: errs.slice(0, 3).concat([sample]).join('\n') });
+  }
+  const used = new Set(), keys = [];
+  for (let i = 0; i < 10; i++) keys.push(DuelGen.round(i, used).key);
+  s.items.push({ name: '10 раундов дуэли без повторов', ok: new Set(keys).size === 10 });
+}
+
+function checkMines(section) {
+  const L = LEVELS.minesweeper || [];
+  const s = section('Сапёр: уровни (' + L.length + ', нужно 12)');
+  s.items.push({ name: 'количество уровней = 12', ok: L.length === 12 });
+  L.forEach((lv, i) => {
+    const errs = [], info = [];
+    const syn = Py.check('mine = False\n' + lv.rule);
+    if (syn) errs.push('ошибка в правиле: ' + syn.msg);
+    else {
+      let minM = 99, maxM = 0;
+      for (let k = 0; k < 20; k++) {
+        const cells = MineSim.board(lv);
+        const m = cells.filter(c => c.mine).length;
+        minM = Math.min(minM, m); maxM = Math.max(maxM, m);
+        // правило, выполненное интерпретатором, совпадает с условием из объяснения (для правил в одну строку)
+        if (!lv.rule.includes('else') && lv.rule.split('\n').filter(l => /^\s*if/.test(l)).length === 1) {
+          const cond = lv.rule.match(/if\s+(.+):/)[1];
+          cells.forEach(c => { if (Py.truthy(Py.evalExpr(cond, { n: c.n, row: c.row, col: c.col })) !== c.mine) errs.push('несовпадение в клетке ' + JSON.stringify(c)); });
+        }
+      }
+      info.push('мин на поле: от ' + minM + ' до ' + maxM + ' (20 случайных полей)');
+      if (minM < 5 || maxM > 22) errs.push('плотность мин вне 5…22');
+      info.push('объяснение для n = 21, row = 3, col = 1:\n' + MineSim.explain(lv, { n: 21, row: 3, col: 1 }).join('\n'));
+    }
+    s.items.push({ name: (i + 1) + '. ' + lv.title, ok: !errs.length, code: lv.rule, detail: errs.slice(0, 3).concat(info).join('\n') });
+  });
+  s.items.push({ name: 'разбор условия по and/or вне скобок', ok: JSON.stringify(MineSim.parts('row > col and (n % 2 == 0 or n > 25)')) === JSON.stringify(['row > col', '(n % 2 == 0 or n > 25)']) });
+}
+
+function checkBazaar(section) {
+  const L = LEVELS.bazaar || [];
+  const s = section('Магазин: уровни (' + L.length + ', нужно 8)');
+  s.items.push({ name: 'количество уровней = 8', ok: L.length === 8 });
+  L.forEach((lv, i) => {
+    const errs = [], info = [];
+    const outs = new Set();
+    let edgeSeen = !lv.edges;
+    for (let k = 0; k < 30; k++) {
+      const list = BazaarSim.customers(lv);
+      if (list.length !== 10) errs.push('покупателей не 10');
+      list.forEach(v => {
+        const r = BazaarSim.serve(lv.solution, v);
+        if (!r.ok) errs.push('эталон падает на ' + JSON.stringify(v) + ': ' + r.error);
+        else if (!r.output.trim()) errs.push('эталон ничего не вывел');
+        outs.add(r.output);
+        if (lv.edges && Object.keys(lv.edges).some(key => lv.edges[key].includes(v[key]))) edgeSeen = true;
+      });
+      if (k === 0) info.push(list.slice(0, 3).map(v => JSON.stringify(v) + ' → ' + JSON.stringify(BazaarSim.serve(lv.solution, v).output)).join('\n'));
+    }
+    if (!edgeSeen) errs.push('пограничные значения не попадаются');
+    // неверная программа (просто печатает что-то не то) не должна пройти всех покупателей
+    const wrong = BazaarSim.customers(lv).every(v => BazaarSim.check(lv, 'print(0)', v).ok);
+    if (wrong) errs.push('программа print(0) проходит всех — уровень слишком слабый');
+    // эталон проходит сам себя
+    if (!BazaarSim.customers(lv).every(v => BazaarSim.check(lv, lv.solution, v).ok)) errs.push('эталон не проходит проверку');
+    s.items.push({ name: (i + 1) + '. ' + lv.title + ' — разных чеков: ' + outs.size, ok: !errs.length, code: lv.solution, detail: errs.slice(0, 3).concat(info).join('\n') });
+  });
+}
+
+function checkRobot(section) {
+  const L = LEVELS.robot || [];
+  const s = section('Робот: уровни (' + L.length + ', нужно 20)');
+  s.items.push({ name: 'количество уровней = 20', ok: L.length === 20 });
+  L.forEach((lv, i) => {
+    const errs = [], info = [];
+    if (!lv.random) {
+      const okMap = lv.map.length === 8 && lv.map.every(r => r.length === 8 && /^[#.R$OF]+$/.test(r));
+      if (!okMap) errs.push('карта должна быть 8×8 из символов # . R $ O F');
+      if (lv.map.join('').split('R').length !== 2) errs.push('на карте должен быть ровно один робот R');
+      const r = RobotSim.run(lv, lv.solution);
+      if (!r.win) errs.push('эталон не доходит до финиша: ' + (r.error || 'программа закончилась раньше'));
+      else if (r.stars !== 3) errs.push('эталон получает ' + r.stars + ' звезды вместо 3 (строк: ' + RobotSim.countLines(lv.solution) + ', монет ' + r.world.taken + '/' + r.world.coins + ')');
+    } else {
+      let wins = 0;
+      const maps = new Set();
+      for (let seed = 1; seed <= 50; seed++) {
+        const r = RobotSim.run(lv, lv.solution, seed);
+        maps.add(r.map.join('/'));
+        if (r.win && r.stars === 3) wins++;
+        else if (errs.length < 3) errs.push('зерно ' + seed + ': ' + (r.error || 'не дошёл / не 3 звезды') + '\n' + r.map.join('\n'));
+      }
+      info.push('эталон прошёл ' + wins + ' из 50 случайных карт; разных карт: ' + maps.size);
+      if (maps.size < 20) errs.push('слишком мало разных карт: ' + maps.size);
+    }
+    s.items.push({ name: (i + 1) + '. ' + lv.title, ok: !errs.length, code: lv.solution, detail: errs.concat(info).join('\n') });
+  });
+}
+
+function checkTasks(section) {
+  const s = section('Задачи-пазлы (' + TASKS.length + ', нужно 60+)');
+  s.items.push({ name: 'задач не меньше 60', ok: TASKS.length >= 60 });
+  const ids = new Set();
+  const ok = (cond, msg, errs) => { if (!cond) errs.push(msg); };
+  const runAll = (code, tests) => (tests && tests.length ? tests : [{ inputs: [] }]).map(tc => ({ tc, r: Py.run(code, { inputs: tc.inputs || [] }) }));
+  const flat = out => out.trim().split(/\s+/).join(' ');
+
+  for (const task of TASKS) {
+    const errs = [], info = [];
+    const d = task.data || {};
+    ok(task.id && !ids.has(task.id), 'id пустой или повторяется', errs);
+    ids.add(task.id);
+    ok(['parsons', 'blanks', 'output', 'bug', 'maze', 'match', 'flow'].includes(task.type), 'неизвестный type', errs);
+    ok(task.topic >= 1 && task.topic <= 8, 'topic должен быть 1..8', errs);
+    ok(task.level >= 1 && task.level <= 3, 'level должен быть 1..3', errs);
+    ok(task.title && task.story && task.explain, 'нужны title, story, explain', errs);
+    ok(Array.isArray(task.hints) && task.hints.length === 2, 'нужно ровно 2 подсказки', errs);
+
+    try {
+      switch (task.type) {
+        case 'output': {
+          const r = Py.run(task.code, { inputs: task.inputs || [] });
+          ok(r.ok, 'код падает: ' + r.error, errs);
+          ok(r.output.trim() !== '', 'программа ничего не выводит', errs);
+          info.push('Ответ: ' + JSON.stringify(r.output));
+          break;
+        }
+        case 'parsons':
+        case 'flow': {
+          const code = d.lines.join('\n');
+          for (const { tc, r } of runAll(code, d.tests)) {
+            ok(r.ok, 'эталон падает на ' + JSON.stringify(tc.inputs) + ': ' + r.error, errs);
+            info.push(JSON.stringify(tc.inputs || []) + ' → ' + JSON.stringify(r.output));
+          }
+          const trimmed = d.lines.map(l => l.trim());
+          (d.distractors || []).forEach(x => ok(!trimmed.includes(x.trim()), 'ловушка совпадает с настоящей строкой: ' + x, errs));
+          if (task.type === 'flow') ok(Array.isArray(d.chart) && Flowchart.svg(d.chart).includes('<svg'), 'нет блок-схемы', errs);
+          break;
+        }
+        case 'blanks': {
+          const slots = Array.from(new Set((task.code.match(/___(\d+)___/g) || []).map(m => m.match(/\d+/)[0])));
+          ok(slots.length > 0, 'в коде нет пропусков', errs);
+          slots.forEach(n => ok(d.answers[n] && d.answers[n].length, 'нет ответа для пропуска ' + n, errs));
+          const need = {};
+          slots.forEach(n => { const a = d.answers[n][0]; need[a] = (need[a] || 0) + 1; });
+          Object.keys(need).forEach(a => ok(d.bank.filter(x => x === a).length >= need[a], 'в банке не хватает плитки «' + a + '»', errs));
+          ok(d.bank.length > slots.length, 'в банке должны быть лишние плитки', errs);
+          const filled = task.code.replace(/___(\d+)___/g, (m, n) => d.answers[n][0]);
+          const syn = Py.check(filled);
+          ok(!syn, 'заполненный код с ошибкой: ' + (syn && syn.msg), errs);
+          info.push(filled);
+          break;
+        }
+        case 'bug': {
+          const lines = task.code.split('\n');
+          ok(d.line >= 1 && d.line <= lines.length, 'неверный номер строки бага', errs);
+          ok(d.fixes.length >= 3 && d.fixes.length <= 4, 'нужно 3–4 варианта исправления', errs);
+          const fix = f => (d.raw || /^\s/.test(f) ? f : lines[d.line - 1].match(/^\s*/)[0] + f);
+          const fixed = lines.map((l, i) => (i === d.line - 1 ? fix(d.fixes[d.correct]) : l)).join('\n');
+          let differs = false;
+          for (const tc of d.tests && d.tests.length ? d.tests : [{ inputs: [] }]) {
+            const a = Py.run(task.code, { inputs: tc.inputs || [] }), b = Py.run(fixed, { inputs: tc.inputs || [] });
+            ok(b.ok, 'исправленный код падает: ' + b.error, errs);
+            if (!a.ok || a.output !== b.output) differs = true;
+            info.push(JSON.stringify(tc.inputs || []) + ': было ' + JSON.stringify(a.ok ? a.output : a.error) + ' → стало ' + JSON.stringify(b.output));
+          }
+          ok(differs, 'на тестах баг не проявляется (вывод одинаковый)', errs);
+          break;
+        }
+        case 'maze': {
+          ok(d.inputLabels.length === (task.code.match(/input\(\)/g) || []).length, 'число полей не совпадает с числом input()', errs);
+          const sigs = new Set();
+          for (const sol of d.solutions) {
+            const r = Py.run(task.code, { inputs: sol, trace: true });
+            const win = r.ok && r.output.includes(d.goal) && !(d.avoid || []).some(a => r.output.includes(a));
+            ok(win, 'решение ' + JSON.stringify(sol) + ' не ведёт к цели: ' + JSON.stringify(r.output || r.error), errs);
+            if (win) sigs.add(Array.from(new Set(r.trace.map(x => x.line))).sort((a, b) => a - b).join(','));
+            info.push(JSON.stringify(sol) + ' → ' + JSON.stringify(r.output));
+          }
+          ok(sigs.size >= (d.ways || 1), 'решения покрывают ' + sigs.size + ' путей, а заявлено ways = ' + d.ways, errs);
+          ok(/👹|💀/.test(task.code), 'нет «плохих» концовок', errs);
+          break;
+        }
+        case 'match': {
+          const rights = d.pairs.map(p => p[1]);
+          ok(new Set(rights).size === rights.length, 'правые карточки повторяются', errs);
+          for (const [l, r] of d.pairs) {
+            let got = null;
+            if (d.kind === 'range') got = Py.str(Py.evalExpr('list(' + l + ')')).replace(/[\[\],]/g, '').trim();
+            else if (d.kind === 'expr') got = Py.str(Py.evalExpr(l, d.vars || {}));
+            else if (d.kind === 'filter') {
+              const xs = [];
+              for (let n = d.from; n <= d.to; n++) if (Py.truthy(Py.evalExpr(l, { n }))) xs.push(n);
+              got = xs.join(' ');
+            } else if (d.kind === 'code') {
+              const res = Py.run(l);
+              got = res.ok ? flat(res.output) : 'ОШИБКА ' + res.error;
+            }
+            if (got !== null) ok(got === r, JSON.stringify(l) + ' даёт «' + got + '», а в паре «' + r + '»', errs);
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      errs.push('исключение: ' + (e.message || e));
+    }
+    s.items.push({ name: task.id + ' — ' + task.title, ok: !errs.length, detail: errs.concat(info).join('\n') });
+  }
+
+  // покрытие: каждая тема — минимум 4 типа пазлов и все 3 уровня
+  const cov = section('Покрытие тем (нужно ≥ 4 типов пазлов и все 3 уровня в каждой теме)');
+  for (let n = 1; n <= 8; n++) {
+    const tt = TASKS.filter(x => x.topic === n);
+    const types = new Set(tt.map(x => x.type)), levels = new Set(tt.map(x => x.level));
+    cov.items.push({ name: 'Тема ' + n + ': задач ' + tt.length + ', типов ' + types.size + ', уровней ' + levels.size, ok: types.size >= 4 && levels.size === 3 });
+  }
+}
+
+function render() {
+  const onlyFail = document.getElementById('onlyFail').checked;
+  const out = document.getElementById('out');
+  let total = 0, passed = 0, html = '';
+  for (const s of sections) {
+    const ok = s.items.filter(i => i.ok).length;
+    const hard = s.items.filter(i => !i.soft);
+    total += hard.length; passed += hard.filter(i => i.ok).length;
+    html += '<h2>' + esc(s.title) + ' — <span class="' + (ok === s.items.length ? 'ok' : hard.every(i => i.ok) ? 'warn' : 'bad') + '">' + ok + '/' + s.items.length + '</span></h2>';
+    for (const i of s.items) {
+      if (onlyFail && i.ok) continue;
+      const cls = i.ok ? 'ok' : i.soft ? 'warn' : 'bad';
+      html += '<details' + (i.ok || i.soft ? '' : ' open') + '><summary class="' + cls + '">' + (i.ok ? '✔ ' : i.soft ? '⚠ ' : '✘ ') + esc(i.name) + '</summary>' +
+        (i.code ? '<pre>' + esc(i.code) + '</pre>' : '') + (i.detail ? '<pre>' + esc(i.detail) + '</pre>' : '') + '</details>';
+    }
+  }
+  out.innerHTML = html;
+  const tot = document.getElementById('total');
+  tot.className = 'summary ' + (passed === total ? 'ok' : 'bad');
+  tot.textContent = (passed === total ? '✔ Все проверки пройдены: ' : '✘ Пройдено ') + passed + ' из ' + total;
+  console.log('[tests] ' + passed + '/' + total);
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+runEngineTests();
+for (const c of DATA_CHECKS) c(section);
+render();
+document.getElementById('onlyFail').addEventListener('change', render);
+</script>
+</body>
+</html>
