@@ -9,7 +9,7 @@ const Quest = (function () {
     { icon: '🐞', title: t('type.bug'), kind: 'task', pick: x => x.type === 'bug' },
     { icon: '🔢', title: t('quest.3'), kind: 'count' },
     { icon: '🐢', title: t('quest.4'), kind: 'game', game: 'turtle', level: 3 },
-    { icon: '🧩', title: t('type.parsons'), kind: 'task', pick: x => (x.type === 'parsons' || x.type === 'flow') && x.topic >= 5 },
+    { icon: '🧩', title: t('type.parsons'), kind: 'task', pick: x => (x.type === 'parsons' || x.type === 'flow') && x.topic >= 5 && x.topic <= 8 },
     { icon: '💣', title: t('quest.5'), kind: 'game', game: 'minesweeper', level: 4 }
   ];
 

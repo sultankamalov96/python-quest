@@ -68,7 +68,7 @@ const Games = {
   get(id) { return this.list[id]; }
 };
 
-const TOPICS = [1, 2, 3, 4, 5, 6, 7, 8];
+const TOPICS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 // ------------------------------------------------------------------ приложение
 const App = (function () {
@@ -99,6 +99,8 @@ const App = (function () {
     try { sessionStorage.setItem('pyquest.tsettings', JSON.stringify(teacherSettings)); } catch (e) { /* ignore */ }
   }
 
+  let query = new URLSearchParams('');   // параметры после ? в адресе
+
   function onLeave(fn) { leaveFns.push(fn); }
 
   function go(hash) {
@@ -119,6 +121,10 @@ const App = (function () {
     [/^\/quest\/(\d+)$/, m => Quest.station(view(), +m[1])],
     [/^\/present\/([\w-]+)$/, m => Teacher.present(view(), m[1])],
     [/^\/print$/, () => Teacher.print(view())],
+    [/^\/tests$/, () => Exam.list(view())],
+    [/^\/tests\/(\w+)$/, m => Exam.run(view(), m[1])],
+    [/^\/tests\/(\w+)\/all$/, m => Exam.all(view(), m[1])],
+    [/^\/tests\/(\w+)\/print$/, m => Exam.printVariant(view(), m[1])],
     [/^\/achievements$/, renderAchievements],
     [/^\/teacher$/, () => Teacher.render(view())]
   ];
@@ -126,7 +132,9 @@ const App = (function () {
   function route() {
     leaveFns.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
     leaveFns = [];
-    const path = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const full = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const path = full.split('?')[0];
+    query = new URLSearchParams(full.split('?')[1] || '');
     const v = view();
     v.innerHTML = '';
     v.className = 'view';
@@ -176,11 +184,12 @@ const App = (function () {
     const nav = [
       ['puzzles', '🧩', t('nav.puzzles')],
       ['games', '🎮', t('nav.games')],
+      ['tests', '📝', t('nav.tests')],
       ['quest', '🗝️', t('nav.quest')],
       ['achievements', '🏆', t('nav.achievements')]
     ];
     const header = h('header', { class: 'topbar' },
-      h('a', { class: 'brand', href: '#/' }, h('span', { class: 'brand-logo' }, 'py'), h('span', { class: 'brand-text' }, h('b', null, t('app.title')), h('small', null, t('app.subtitle')))),
+      h('a', { class: 'brand', href: '#/' }, h('img', { class: 'brand-logo', src: 'img/logo.svg', alt: '' }), h('span', { class: 'brand-text' }, h('b', null, t('app.title')), h('small', null, t('app.subtitle')))),
       h('nav', { class: 'nav' }, nav.map(([id, icon, label]) =>
         h('a', { href: '#/' + id, 'data-section': id }, h('span', { class: 'nav-icon' }, icon), h('span', { class: 'nav-label' }, label)))),
       h('div', { class: 'top-actions' },
@@ -277,6 +286,7 @@ const App = (function () {
       h('div', { class: 'home-grid' },
         card('#/puzzles', 'c-puzzles', '🧩', t('home.puzzles'), t('home.puzzles.desc'), t('home.solved', { n: solved, total: TASKS.length })),
         card('#/games', 'c-games', '🎮', t('home.games'), t('home.games.desc'), t('home.games.count', { n: Games.ORDER.length })),
+        card('#/tests', 'c-tests', '📝', t('home.tests'), t('home.tests.desc'), t('home.tests.meta', { n: Exam.passedCount(), total: Object.keys(EXAMS).length })),
         card('#/quest', 'c-quest', '🗝️', t('home.quest'), t('home.quest.desc'), t('home.quest.letters', { n: letters, total: word.length })),
         card('#/achievements', 'c-ach', '🏆', t('home.achievements'), t('home.achievements.desc'),
           t('home.badges', { n: Object.keys(s.ach).length, total: Progress.ACHIEVEMENTS.length }))
@@ -603,6 +613,10 @@ const App = (function () {
           return h('div', { class: 'badge' + (got ? ' got' : ''), title: got ? new Date(got).toLocaleDateString('ru-RU') : t('ach.locked') },
             h('span', { class: 'badge-icon' }, a.icon), h('b', null, t('badge.' + a.id)), h('small', null, t('badge.' + a.id + '.desc')));
         }))),
+      h('section', { class: 'panel' }, h('h2', null, '📝 ' + t('exam.title')),
+        h('ul', { class: 'star-list' }, Exam.summary().map(x => h('li', null, h('span', null, x.icon + ' ' + x.title),
+          x.rec ? h('span', null, h('span', { class: 'ex-grade small g' + x.rec.bestGrade }, x.rec.bestGrade), ' ' + t('exam.best', { p: x.rec.best }))
+            : h('span', { class: 'muted' }, t('exam.notyet')))))),
       h('section', { class: 'panel' }, h('h2', null, t('ach.records')),
         recKeys.length ? h('ul', { class: 'star-list' }, recKeys.map(k => h('li', null, h('span', null, t('record.' + k)), h('b', null, s.records[k]))))
           : h('p', { class: 'muted' }, t('ach.norecords')))
@@ -629,6 +643,7 @@ const App = (function () {
   return {
     init, go, route, onLeave, modal, updateScore,
     get teacher() { return teacher; },
+    get query() { return query; },
     setTeacher, setProjector, resetProgress, openTeacher,
     get teacherSettings() { return teacherSettings; },
     saveTeacherSettings, view,

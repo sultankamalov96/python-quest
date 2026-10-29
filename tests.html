@@ -26,23 +26,24 @@
 <div id="total" class="summary"></div>
 <div id="out"></div>
 
-<script src="data/config.js?v=20261028b"></script>
-<script src="js/i18n.js?v=20261028b"></script>
-<script src="data/tasks.js?v=20261028b"></script>
-<script src="data/levels.js?v=20261028b"></script>
-<script src="data/quiz.js?v=20261028b"></script>
-<script src="js/engine.js?v=20261028b"></script>
-<script src="js/flowchart.js?v=20261028b"></script>
-<script src="js/games/robot.js?v=20261028b"></script>
-<script src="js/games/truefalse.js?v=20261028b"></script>
-<script src="js/games/count.js?v=20261028b"></script>
-<script src="js/games/turtle.js?v=20261028b"></script>
-<script src="js/games/tracer.js?v=20261028b"></script>
-<script src="js/games/memory.js?v=20261028b"></script>
-<script src="js/games/quiz.js?v=20261028b"></script>
-<script src="js/games/duel.js?v=20261028b"></script>
-<script src="js/games/minesweeper.js?v=20261028b"></script>
-<script src="js/games/bazaar.js?v=20261028b"></script>
+<script src="data/config.js?v=20261029a"></script>
+<script src="js/i18n.js?v=20261029a"></script>
+<script src="data/tasks.js?v=20261029a"></script>
+<script src="data/levels.js?v=20261029a"></script>
+<script src="data/quiz.js?v=20261029a"></script>
+<script src="data/exams.js?v=20261029a"></script>
+<script src="js/engine.js?v=20261029a"></script>
+<script src="js/flowchart.js?v=20261029a"></script>
+<script src="js/games/robot.js?v=20261029a"></script>
+<script src="js/games/truefalse.js?v=20261029a"></script>
+<script src="js/games/count.js?v=20261029a"></script>
+<script src="js/games/turtle.js?v=20261029a"></script>
+<script src="js/games/tracer.js?v=20261029a"></script>
+<script src="js/games/memory.js?v=20261029a"></script>
+<script src="js/games/quiz.js?v=20261029a"></script>
+<script src="js/games/duel.js?v=20261029a"></script>
+<script src="js/games/minesweeper.js?v=20261029a"></script>
+<script src="js/games/bazaar.js?v=20261029a"></script>
 <script>
 // ------------------------------------------------------------------ тесты интерпретатора
 // out — ожидаемый вывод (точно), err — подстрока ожидаемой ошибки
@@ -146,7 +147,29 @@ const ENGINE_TESTS = [
   { name: 'ошибка: int("abc")', code: 'x = int("abc")', err: "не может превратить 'abc'" },
   { name: 'ошибка: for по числу', code: 'for i in 10:\n    print(i)', err: 'range(10)' },
   { name: 'ошибка: && вместо and', code: 'x = 1\nif x > 0 && x < 5:\n    pass', err: 'вместо && пишут and' },
-  { name: 'ошибка: def не поддерживается', code: 'def f():\n    pass', err: 'не поддерживается' },
+  { name: 'ошибка: class не поддерживается', code: 'class A:\n    pass', err: 'не поддерживается' },
+  // --- функции
+  { name: 'def и return', code: 'def add(a, b):\n    return a + b\nprint(add(2, 3))', out: '5\n' },
+  { name: 'функция без return возвращает None', code: 'def hi():\n    print("hi")\nx = hi()\nprint(x)', out: 'hi\nNone\n' },
+  { name: 'параметр по умолчанию и именованный аргумент', code: 'def hi(name="мир", mark="!"):\n    print("Привет, " + name + mark)\nhi()\nhi("Аля")\nhi(mark="?")', out: 'Привет, мир!\nПривет, Аля!\nПривет, мир?\n' },
+  { name: 'return выходит из цикла и функции', code: 'def find(a):\n    for x in a:\n        if x > 5:\n            return x\n    return -1\nprint(find([1, 7, 9]), find([1]))', out: '7 -1\n' },
+  { name: 'локальная переменная не меняет глобальную', code: 'x = 5\ndef f():\n    x = 1\n    return x\nprint(f(), x)', out: '1 5\n' },
+  { name: 'функция читает глобальную переменную', code: 'rate = 3\ndef cost(n):\n    return n * rate\nprint(cost(4))', out: '12\n' },
+  { name: 'global', code: 'score = 0\ndef add():\n    global score\n    score += 10\nadd()\nadd()\nprint(score)', out: '20\n' },
+  { name: 'рекурсия', code: 'def fact(n):\n    if n <= 1:\n        return 1\n    return n * fact(n - 1)\nprint(fact(6))', out: '720\n' },
+  { name: 'функция вызывает функцию', code: 'def sq(x):\n    return x * x\ndef f(x):\n    return sq(x) + 1\nprint(f(3))', out: '10\n' },
+  { name: 'return нескольких значений', code: 'def mm(a):\n    return min(a), max(a)\nlo, hi = mm([4, 1, 9])\nprint(lo, hi)', out: '1 9\n' },
+  { name: 'ошибка: изменение глобальной без global', code: 'score = 0\ndef add():\n    score += 10\nadd()', err: 'global score' },
+  { name: 'ошибка: return вне функции', code: 'return 5', err: 'Строка 1: return можно использовать только внутри функции' },
+  { name: 'ошибка: не передан аргумент', code: 'def f(a, b):\n    pass\nf(1)', err: 'не передан аргумент b' },
+  { name: 'ошибка: лишний аргумент', code: 'def f(a):\n    pass\nf(1, 2)', err: 'принимает 1 аргумент(а), а передано 2' },
+  { name: 'ошибка: вызов до определения', code: 'hello()\ndef hello():\n    pass', err: 'функция hello не определена' },
+  { name: 'ошибка: бесконечная рекурсия', code: 'def f(n):\n    return f(n + 1)\nf(0)', err: 'слишком глубокая рекурсия' },
+  { name: 'ошибка: def без скобок', code: 'def hello:\n    pass', err: 'нужны скобки' },
+  // --- списки и строки
+  { name: 'методы списков', code: 'a = [3, 1, 2]\na.insert(0, 5)\na.remove(1)\na.sort()\nprint(a)\na.reverse()\nprint(a, a.index(3))', out: '[2, 3, 5]\n[5, 3, 2] 1\n' },
+  { name: 'sorted и reverse=True', code: 'a = [3, 1, 2]\nprint(sorted(a), a)\na.sort(reverse=True)\nprint(a)', out: '[1, 2, 3] [3, 1, 2]\n[3, 2, 1]\n' },
+  { name: 'join, split, ord, chr', code: 'w = "a b c".split()\nprint("-".join(w))\nprint(ord("A"), chr(98))', out: 'a-b-c\n65 b\n' },
 ];
 
 // --- тесты API: подключаемые функции, пошаговый режим, evalExpr
@@ -180,6 +203,15 @@ const API_TESTS = [
       const outs = [];
       for (const s of Py.steps('print(1)\nprint(2)')) outs.push(s.out);
       return outs[0] === '1\n' && outs[1] === '1\n2\n';
+  } },
+  { name: 'trace заходит внутрь функции', fn() {
+      const r = Py.run('def f(n):\n    s = n * 2\n    return s\nx = f(3)', { trace: true });
+      return r.trace.map(t => t.line).join(',') === '1,2,3,4' && r.trace[1].vars.s === '6' && !('s' in r.vars);
+  } },
+  { name: 'пошаговый режим: шаги внутри своей функции', fn() {
+      const lines = [];
+      for (const s of Py.steps('def go():\n    step()\n    step()\ngo()\ngo()', { builtins: { step() {} } })) lines.push(s.line);
+      return lines.join(',') === '1,2,3,4,2,3,5';
   } },
   { name: 'run с trace', fn() {
       const r = Py.run('a = 5\nif a > 3:\n    print("да")', { trace: true });
@@ -240,7 +272,7 @@ function runEngineTests() {
 }
 
 // Проверки задач и уровней: каждая функция получает section(title) и добавляет результаты
-const DATA_CHECKS = [checkTasks, checkRobot, checkTrueFalse, checkCount, checkTurtle, checkTracer, checkMemory, checkQuiz, checkDuel, checkMines, checkBazaar];
+const DATA_CHECKS = [checkTasks, checkRobot, checkTrueFalse, checkCount, checkTurtle, checkTracer, checkMemory, checkQuiz, checkDuel, checkMines, checkBazaar, checkExams];
 
 function checkTrueFalse(section) {
   const s = section('Истина или Ложь: генератор условий');
@@ -473,6 +505,36 @@ function checkBazaar(section) {
   });
 }
 
+function checkExams(section) {
+  const flat = out => out.trim().split(/\s+/).join(' ');
+  for (const [id, ex] of Object.entries(EXAMS)) {
+    const qs = ex.questions;
+    const s = section('Тест «' + ex.title + '» (' + qs.length + ' вопросов, нужно 60)');
+    s.items.push({ name: 'вопросов ровно 60', ok: qs.length === 60 });
+    const keys = qs.map(q => q.q + '|' + (q.code || ''));
+    s.items.push({ name: 'вопросы не повторяются', ok: new Set(keys).size === keys.length });
+    let checked = 0;
+    qs.forEach((q, i) => {
+      const errs = [];
+      if (!q.q || !q.explain) errs.push('нужны q и explain');
+      if (!Array.isArray(q.options) || q.options.length !== 4 || new Set(q.options).size !== 4) errs.push('нужно 4 разных варианта');
+      if (q.code) {
+        const r = Py.run(q.code, { inputs: q.inputs || [] });
+        if (q.check === 'error') { if (r.ok) errs.push('код должен завершаться ошибкой'); }
+        else if (!r.ok) errs.push('код падает: ' + r.error);
+        else if (q.check) {
+          const got = q.check === 'count' ? String(r.output.replace(/\n$/, '').split('\n').length) : flat(r.output);
+          if (got !== q.options[0]) errs.push('верный (первый) вариант «' + q.options[0] + '», а интерпретатор даёт «' + got + '»');
+          q.options.slice(1).forEach(o => { if (o === got) errs.push('неверный вариант совпадает с ответом: ' + o); });
+        }
+        if (q.check) checked++;
+      }
+      s.items.push({ name: (i + 1) + '. ' + q.q + (q.check ? ' ✓' : ''), ok: !errs.length, code: q.code, detail: errs.join('\n') });
+    });
+    s.title += ' — проверено интерпретатором: ' + checked;
+  }
+}
+
 function checkRobot(section) {
   const L = LEVELS.robot || [];
   const s = section('Робот: уровни (' + L.length + ', нужно 20)');
@@ -516,7 +578,7 @@ function checkTasks(section) {
     ok(task.id && !ids.has(task.id), 'id пустой или повторяется', errs);
     ids.add(task.id);
     ok(['parsons', 'blanks', 'output', 'bug', 'maze', 'match', 'flow'].includes(task.type), 'неизвестный type', errs);
-    ok(task.topic >= 1 && task.topic <= 8, 'topic должен быть 1..8', errs);
+    ok(task.topic >= 1 && task.topic <= 12, 'topic должен быть 1..12', errs);
     ok(task.level >= 1 && task.level <= 3, 'level должен быть 1..3', errs);
     ok(task.title && task.story && task.explain, 'нужны title, story, explain', errs);
     ok(Array.isArray(task.hints) && task.hints.length === 2, 'нужно ровно 2 подсказки', errs);
@@ -614,7 +676,7 @@ function checkTasks(section) {
 
   // покрытие: каждая тема — минимум 4 типа пазлов и все 3 уровня
   const cov = section('Покрытие тем (нужно ≥ 4 типов пазлов и все 3 уровня в каждой теме)');
-  for (let n = 1; n <= 8; n++) {
+  for (let n = 1; n <= 12; n++) {
     const tt = TASKS.filter(x => x.topic === n);
     const types = new Set(tt.map(x => x.type)), levels = new Set(tt.map(x => x.level));
     cov.items.push({ name: 'Тема ' + n + ': задач ' + tt.length + ', типов ' + types.size + ', уровней ' + levels.size, ok: types.size >= 4 && levels.size === 3 });

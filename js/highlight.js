@@ -4,10 +4,10 @@
 const Highlight = (function () {
   'use strict';
   const KW = new Set(['if', 'elif', 'else', 'while', 'for', 'in', 'not', 'and', 'or', 'is', 'break',
-    'continue', 'pass', 'def', 'return', 'import', 'from', 'class', 'lambda', 'try', 'except']);
+    'continue', 'pass', 'def', 'return', 'global', 'import', 'from', 'class', 'lambda', 'try', 'except']);
   const CONST = new Set(['True', 'False', 'None']);
   const BUILTIN = new Set(['print', 'input', 'int', 'str', 'float', 'bool', 'len', 'abs', 'min', 'max',
-    'range', 'round', 'sum', 'list', 'type']);
+    'range', 'round', 'sum', 'list', 'type', 'sorted', 'reversed', 'ord', 'chr']);
   // команды игр (робот, черепашка)
   const GAME = new Set(['forward', 'back', 'left', 'right', 'take', 'wall_ahead', 'coin_here', 'at_finish',
     'hole_ahead', 'color', 'pen_up', 'pen_down']);

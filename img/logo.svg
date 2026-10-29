@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Python-квест">
+  <!-- четыре скруглённых ромба: синий, оранжевый, зелёный, фиолетовый -->
+  <g transform="rotate(45 50 50)">
+    <rect x="16" y="16" width="32" height="32" rx="9" fill="#2071e3"/>
+    <rect x="52" y="16" width="32" height="32" rx="9" fill="#f27b1c"/>
+    <rect x="52" y="52" width="32" height="32" rx="9" fill="#30a84c"/>
+    <rect x="16" y="52" width="32" height="32" rx="9" fill="#893fd6"/>
+  </g>
+</svg>

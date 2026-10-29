@@ -170,7 +170,9 @@ const Progress = (function () {
     { id: 'streak5', icon: '🔥', test: () => s.streak >= 5 },
     { id: 'streak10', icon: '☄️', test: () => s.streak >= 10 },
     { id: 'ifmaster', icon: '🔀', test: () => solved().filter(x => x.topic <= 4).length >= 15 },
-    { id: 'loops', icon: '🔁', test: () => solved().filter(x => x.topic >= 5).length >= 15 },
+    { id: 'loops', icon: '🔁', test: () => solved().filter(x => x.topic >= 5 && x.topic <= 8).length >= 15 },
+    { id: 'functions', icon: '🧰', test: () => solved().filter(x => x.topic === 9 || x.topic === 10).length >= 10 },
+    { id: 'lists', icon: '📚', test: () => solved().filter(x => x.topic === 11 || x.topic === 12).length >= 10 },
     { id: 'bughunter', icon: '🐞', test: () => (s.stats.bugs || 0) >= 10 },
     { id: 'universal', icon: '🧩', test: () => new Set(solved().map(x => x.type)).size >= 7 },
     { id: 'robot', icon: '🤖', test: () => allLevels('robot') },
@@ -185,7 +187,8 @@ const Progress = (function () {
     { id: 'merchant', icon: '🛒', test: () => allLevels('bazaar') },
     { id: 'quest', icon: '🗝️', test: () => !!s.stats.questDone },
     { id: 'p1000', icon: '🏅', test: () => total() >= 1000 },
-    { id: 'p5000', icon: '👑', test: () => total() >= 5000 }
+    { id: 'p5000', icon: '👑', test: () => total() >= 5000 },
+    { id: 'exams', icon: '📝', test: () => typeof EXAMS !== 'undefined' && Object.keys(EXAMS).every(k => s.exams && s.exams[k] && s.exams[k].bestGrade === 5) }
   ];
 
   function checkAchievements() {

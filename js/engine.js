@@ -28,7 +28,8 @@
   // list → Array, tuple → PyTuple, range → PyRange, функция → PyFunc
   class PyFloat { constructor(v) { this.v = v; } }
   class PyTuple { constructor(items) { this.items = items; } }
-  class PyFunc { constructor(name, fn) { this.name = name; this.fn = fn; } }
+  class PyFunc { constructor(name, fn, user) { this.name = name; this.fn = fn; this.user = user || null; } }
+  class Ret { constructor(v) { this.v = v; } }   // результат return, всплывает через блоки и циклы
   class PyRange {
     constructor(start, stop, step) { this.start = start; this.stop = stop; this.step = step; }
     get length() {
@@ -129,9 +130,9 @@
 
   // ---------------------------------------------------------------- токенайзер
   const KEYWORDS = new Set(['if', 'elif', 'else', 'while', 'for', 'in', 'not', 'and', 'or', 'is',
-    'True', 'False', 'None', 'break', 'continue', 'pass']);
-  const UNSUPPORTED = new Set(['def', 'class', 'return', 'import', 'from', 'try', 'except', 'finally',
-    'lambda', 'with', 'global', 'nonlocal', 'del', 'yield', 'async', 'await', 'raise', 'assert']);
+    'True', 'False', 'None', 'break', 'continue', 'pass', 'def', 'return', 'global']);
+  const UNSUPPORTED = new Set(['class', 'import', 'from', 'try', 'except', 'finally',
+    'lambda', 'with', 'nonlocal', 'del', 'yield', 'async', 'await', 'raise', 'assert']);
   const OPS3 = ['//=', '**='];
   const OPS2 = ['**', '//', '==', '!=', '<=', '>=', '+=', '-=', '*=', '/=', '%='];
   const OPS1 = '+-*/%<>=()[]{},:.;';
@@ -243,7 +244,7 @@
   const AUG_OPS = new Set(['+=', '-=', '*=', '/=', '//=', '%=', '**=']);
 
   class Parser {
-    constructor(toks) { this.toks = toks; this.p = 0; this.loops = 0; }
+    constructor(toks) { this.toks = toks; this.p = 0; this.loops = 0; this.funcs = 0; }
     peek(o) { return this.toks[Math.min(this.p + (o || 0), this.toks.length - 1)]; }
     next() { return this.toks[this.p++]; }
     isOp(v) { const t = this.peek(); return t.t === 'op' && t.v === v; }
@@ -268,6 +269,7 @@
           case 'if': return [this.ifStmt()];
           case 'while': return [this.whileStmt()];
           case 'for': return [this.forStmt()];
+          case 'def': return [this.defStmt()];
           case 'elif':
           case 'else': throw this.err(t.v + ' без if — проверьте отступы');
         }
@@ -288,7 +290,7 @@
         const s = stmts[stmts.length - 1];
         if (s.k === 'expr' && s.e.k === 'name' && s.e.v === 'print') throw this.err('print — это функция, нужны скобки: print(...)');
         if (t.t === 'name' && t.v === 'if') throw this.err('if должен стоять в начале строки');
-        if (t.t === 'op' && t.v === ':') throw this.err('лишнее двоеточие — оно ставится только после if, elif, else, while, for');
+        if (t.t === 'op' && t.v === ':') throw this.err('лишнее двоеточие — оно ставится только после if, elif, else, while, for, def');
         throw this.err('синтаксическая ошибка — непонятно, что значит «' + (t.v !== undefined ? t.v : '') + '»');
       }
       if (t.t === 'nl') this.next();
@@ -301,6 +303,24 @@
         this.next();
         if (t.v !== 'pass' && this.loops === 0) throw this.err(t.v + ' можно использовать только внутри цикла', t);
         return { k: t.v, line: t.line };
+      }
+      if (t.t === 'name' && t.v === 'return') {
+        this.next();
+        if (this.funcs === 0) throw this.err('return можно использовать только внутри функции (после def)', t);
+        const n = this.peek();
+        const value = n.t === 'nl' || n.t === 'eof' || (n.t === 'op' && n.v === ';') ? null : this.exprList();
+        return { k: 'return', value, line: t.line };
+      }
+      if (t.t === 'name' && t.v === 'global') {
+        this.next();
+        const names = [];
+        do {
+          if (names.length) this.next();
+          const n = this.peek();
+          if (n.t !== 'name' || KEYWORDS.has(n.v)) throw this.err('после global нужно имя переменной: global score');
+          names.push(this.next().v);
+        } while (this.isOp(','));
+        return { k: 'global', names, line: t.line };
       }
       const e = this.exprList();
       if (this.isOp('=')) {
@@ -399,6 +419,42 @@
       const body = this.block('for');
       this.loops--;
       return { k: 'for', target: v.v, iter, body, line: t.line };
+    }
+
+    defStmt() {
+      const t = this.next();
+      const n = this.peek();
+      if (n.t !== 'name' || KEYWORDS.has(n.v)) throw this.err('после def нужно имя функции: def hello():');
+      this.next();
+      if (!this.isOp('(')) throw this.err('после имени функции нужны скобки: def ' + n.v + '():');
+      const open = this.next();
+      const params = [];
+      while (!this.isOp(')')) {
+        const p = this.peek();
+        if (p.t !== 'name' || KEYWORDS.has(p.v)) throw this.err('в скобках после def перечисляют имена параметров через запятую');
+        this.next();
+        if (params.some(x => x.name === p.v)) throw this.err('параметр ' + p.v + ' повторяется', p);
+        let def = null;
+        if (this.isOp('=')) { this.next(); def = this.expr(); }
+        else if (params.some(x => x.def)) throw this.err('параметры без значения по умолчанию пишутся раньше параметров со значением', p);
+        params.push({ name: p.v, def });
+        if (!this.isOp(',')) break;
+        this.next();
+      }
+      this.expectOp(')', 'не хватает закрывающей скобки «)» (открыта в строке ' + open.line + ')');
+      const loops = this.loops;
+      this.loops = 0;
+      this.funcs++;
+      const body = this.block('def');
+      this.funcs--;
+      this.loops = loops;
+      const globals = new Set(), locals = new Set(params.map(x => x.name));
+      collectNames(body, locals, globals);
+      for (const g of globals) {
+        if (params.some(x => x.name === g)) throw new PyError('имя ' + g + ' — параметр функции, его нельзя объявить global', t.line);
+        locals.delete(g);
+      }
+      return { k: 'def', name: n.v, params, body, locals, globals, line: t.line };
     }
 
     // ---- выражения
@@ -592,6 +648,25 @@
     }
   }
 
+  // Какие имена функция присваивает (они локальные) и какие объявлены global
+  function collectNames(body, locals, globals) {
+    const target = e => {
+      if (e.k === 'name') locals.add(e.v);
+      else if (e.k === 'tuple') e.items.forEach(target);
+    };
+    for (const s of body) {
+      switch (s.k) {
+        case 'assign': s.targets.forEach(target); break;
+        case 'aug': target(s.target); break;
+        case 'for': locals.add(s.target); collectNames(s.body, locals, globals); break;
+        case 'while': collectNames(s.body, locals, globals); break;
+        case 'if': s.branches.forEach(b => collectNames(b.body, locals, globals)); if (s.orelse) collectNames(s.orelse, locals, globals); break;
+        case 'def': locals.add(s.name); break;
+        case 'global': s.names.forEach(n => globals.add(n)); break;
+      }
+    }
+  }
+
   function parseFString(s, line) {
     const parts = [];
     let buf = '', i = 0;
@@ -638,8 +713,12 @@
       steps: 0,
       maxSteps: opts.maxSteps || 10000,
       line: null,
-      snap: opts.snap !== false
+      snap: opts.snap !== false,
+      frame: null,      // текущий вызов функции: { def, depth }
+      depth: 0,
+      trace: opts.trace ? [] : null
     };
+    ctx.globals = ctx.vars;
     Object.assign(ctx.builtins, BUILTINS);
     const user = opts.builtins || {};
     for (const name of Object.keys(user)) ctx.builtins[name] = wrapJS(name, user[name]);
@@ -657,9 +736,12 @@
     });
   }
 
+  // Снимок переменных: глобальные, а внутри функции поверх них — локальные. Функции не показываем.
   function snapshot(ctx) {
     const o = {};
-    for (const k of Object.keys(ctx.vars)) o[k] = repr(ctx.vars[k]);
+    const add = scope => { for (const k of Object.keys(scope)) if (!(scope[k] instanceof PyFunc)) o[k] = repr(scope[k]); };
+    add(ctx.globals);
+    if (ctx.vars !== ctx.globals) add(ctx.vars);
     return o;
   }
 
@@ -667,13 +749,21 @@
     if (++ctx.steps > ctx.maxSteps) {
       throw new PyError('программа сделала больше ' + ctx.maxSteps + ' шагов — возможно, бесконечный цикл. Проверьте, меняется ли переменная в условии while', line);
     }
-    return ctx.snap ? { line, vars: snapshot(ctx), out: ctx.out.join('') } : { line };
+    const st = ctx.snap ? { line, vars: snapshot(ctx), out: ctx.out.join('') } : { line };
+    if (ctx.trace) ctx.trace.push(st);
+    return st;
   }
 
   function fail(ctx, msg) { return new PyError(msg, ctx.line); }
 
   function lookup(name, ctx, asFn) {
     if (name in ctx.vars) return ctx.vars[name];
+    const fr = ctx.frame;
+    if (fr && fr.def.locals.has(name)) {
+      throw fail(ctx, 'переменная ' + name + ' используется в функции ' + fr.def.name + '() раньше, чем получила значение. ' +
+        'Внутри функции она локальная, потому что ей присваивается значение. Чтобы менять глобальную переменную, напишите в начале функции: global ' + name);
+    }
+    if (name in ctx.globals) return ctx.globals[name];
     if (name in ctx.builtins) return ctx.builtins[name];
     const low = name.toLowerCase();
     if (low === 'true' || low === 'false' || low === 'none') {
@@ -819,8 +909,13 @@
     return items[toIndex(evaluate(idxNode, ctx), items.length, ctx)];
   }
 
+  function setVar(name, v, ctx) {
+    if (ctx.frame && ctx.frame.def.globals.has(name)) ctx.globals[name] = v;
+    else ctx.vars[name] = v;
+  }
+
   function assign(t, v, ctx) {
-    if (t.k === 'name') { ctx.vars[t.v] = v; return; }
+    if (t.k === 'name') { setVar(t.v, v, ctx); return; }
     if (t.k === 'index') {
       const obj = evaluate(t.obj, ctx);
       if (!Array.isArray(obj)) throw fail(ctx, 'менять элементы можно только у списка, а не у ' + typeName(obj));
@@ -857,15 +952,37 @@
     return str(v);
   }
 
-  function callMethod(obj, name, args, ctx) {
+  function sortList(a, reverse, ctx) {
+    a.sort((x, y) => (compare('<', x, y, ctx) ? -1 : compare('<', y, x, ctx) ? 1 : 0));
+    if (reverse) a.reverse();
+    return a;
+  }
+
+  function callMethod(obj, name, args, kw, ctx) {
     const need = n => {
       if (args.length !== n) throw fail(ctx, 'метод ' + name + '() ожидает ' + n + ' аргумент(а)');
     };
+    const kws = Object.keys(kw);
+    if (kws.length && !(Array.isArray(obj) && name === 'sort' && kws.every(k => k === 'reverse'))) {
+      throw fail(ctx, 'метод ' + name + '() не принимает именованных аргументов');
+    }
     if (typeof obj === 'string') {
       switch (name) {
         case 'upper': need(0); return obj.toUpperCase();
         case 'lower': need(0); return obj.toLowerCase();
         case 'strip': need(0); return obj.trim();
+        case 'lstrip': need(0); return obj.replace(/^\s+/, '');
+        case 'rstrip': need(0); return obj.replace(/\s+$/, '');
+        case 'capitalize': need(0); return obj.charAt(0).toUpperCase() + obj.slice(1).toLowerCase();
+        case 'title': need(0); return obj.toLowerCase().replace(/(^|[^\p{L}])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+        case 'isupper': need(0); return /\p{L}/u.test(obj) && obj === obj.toUpperCase();
+        case 'islower': need(0); return /\p{L}/u.test(obj) && obj === obj.toLowerCase();
+        case 'join': {
+          need(1);
+          const items = Array.from(seqOf(args[0], ctx));
+          items.forEach(x => { if (typeof x !== 'string') throw fail(ctx, 'join() соединяет только строки, а в списке есть ' + typeName(x) + ' — используйте str()'); });
+          return items.join(obj);
+        }
         case 'isdigit': need(0); return obj.length > 0 && /^\d+$/.test(obj);
         case 'isalpha': need(0); return obj.length > 0 && /^\p{L}+$/u.test(obj);
         case 'replace': need(2); return obj.split(str(args[0])).join(str(args[1]));
@@ -879,6 +996,25 @@
     if (Array.isArray(obj)) {
       switch (name) {
         case 'append': need(1); obj.push(args[0]); return null;
+        case 'extend': need(1); obj.push(...Array.from(seqOf(args[0], ctx))); return null;
+        case 'insert': {
+          need(2);
+          if (!isIntLike(args[0])) throw fail(ctx, 'первый аргумент insert() — номер позиции (целое число)');
+          let i = +args[0];
+          if (i < 0) i = Math.max(0, obj.length + i);
+          obj.splice(Math.min(i, obj.length), 0, args[1]);
+          return null;
+        }
+        case 'remove': {
+          need(1);
+          const i = obj.findIndex(v => pyEq(v, args[0]));
+          if (i < 0) throw fail(ctx, 'remove(): элемента ' + repr(args[0]) + ' нет в списке');
+          obj.splice(i, 1);
+          return null;
+        }
+        case 'reverse': need(0); obj.reverse(); return null;
+        case 'sort': need(0); sortList(obj, truthy(kw.reverse === undefined ? false : kw.reverse), ctx); return null;
+        case 'clear': need(0); obj.length = 0; return null;
         case 'pop':
           if (!obj.length) throw fail(ctx, 'нельзя взять элемент из пустого списка');
           return args.length ? obj.splice(toIndex(args[0], obj.length, ctx), 1)[0] : obj.pop();
@@ -926,22 +1062,86 @@
       case 'index': return getIndex(evaluate(n.obj, ctx), n.idx, ctx);
       case 'attr': throw fail(ctx, 'обращение .' + n.name + ' без вызова не поддерживается');
       case 'call': {
-        if (n.fn.k === 'attr') {
-          const obj = evaluate(n.fn.obj, ctx);
-          if (n.kw.length) throw fail(ctx, 'методы не принимают именованных аргументов');
-          return callMethod(obj, n.fn.name, n.args.map(x => evaluate(x, ctx)), ctx);
-        }
-        const f = n.fn.k === 'name' ? lookup(n.fn.v, ctx, true) : evaluate(n.fn, ctx);
-        if (!(f instanceof PyFunc)) {
-          throw fail(ctx, (n.fn.k === 'name' ? n.fn.v + ' — это ' : '') + typeName(f) + ', а не функция, его нельзя вызвать со скобками ()');
-        }
-        const args = n.args.map(x => evaluate(x, ctx));
-        const kw = {};
-        for (const [k, v] of n.kw) kw[k] = evaluate(v, ctx);
-        return f.fn(args, kw, ctx);
+        const c = prepCall(n, ctx);
+        return c.obj !== undefined ? callMethod(c.obj, n.fn.name, c.args, c.kw, ctx) : c.f.fn(c.args, c.kw, ctx);
       }
     }
     throw fail(ctx, 'неизвестное выражение');
+  }
+
+  // Вычисляет вызываемое и аргументы: { f, args, kw } или { obj, args, kw } для метода
+  function prepCall(n, ctx) {
+    const kwOf = () => { const kw = {}; for (const [k, v] of n.kw) kw[k] = evaluate(v, ctx); return kw; };
+    if (n.fn.k === 'attr') {
+      const obj = evaluate(n.fn.obj, ctx);
+      return { obj, args: n.args.map(x => evaluate(x, ctx)), kw: kwOf() };
+    }
+    const f = n.fn.k === 'name' ? lookup(n.fn.v, ctx, true) : evaluate(n.fn, ctx);
+    if (!(f instanceof PyFunc)) {
+      throw fail(ctx, (n.fn.k === 'name' ? n.fn.v + ' — это ' : '') + typeName(f) + ', а не функция, его нельзя вызвать со скобками ()');
+    }
+    return { f, args: n.args.map(x => evaluate(x, ctx)), kw: kwOf() };
+  }
+
+  // Выражение на верхнем уровне строки: вызов своей функции выполняется пошагово (yield*),
+  // чтобы трассировка и игры видели строки внутри неё. Вложенные вызовы выполняются целиком.
+  function* evalTop(e, ctx) {
+    if (e.k === 'call' && e.fn.k !== 'attr') {
+      const c = prepCall(e, ctx);
+      if (c.f.user) return yield* invoke(c.f, c.args, c.kw, ctx);
+      return c.f.fn(c.args, c.kw, ctx);
+    }
+    return evaluate(e, ctx);
+  }
+
+  const MAX_DEPTH = 200;
+
+  function makeFunc(d, ctx) {
+    const f = new PyFunc(d.name, (args, kw, cx) => {
+      const g = invoke(f, args, kw, cx);
+      let r;
+      while (!(r = g.next()).done);
+      return r.value;
+    }, d);
+    // значения по умолчанию вычисляются один раз — при def, как в Python
+    f.defaults = d.params.map(p => (p.def ? evaluate(p.def, ctx) : undefined));
+    return f;
+  }
+
+  function* invoke(f, args, kw, ctx) {
+    const d = f.user, name = d.name, ps = d.params;
+    if (args.length > ps.length) {
+      throw fail(ctx, 'функция ' + name + '() принимает ' + ps.length + ' аргумент(а), а передано ' + args.length);
+    }
+    const local = Object.create(null);
+    ps.forEach((p, i) => { if (i < args.length) local[p.name] = args[i]; });
+    for (const k of Object.keys(kw)) {
+      if (!ps.some(p => p.name === k)) throw fail(ctx, 'у функции ' + name + '() нет параметра ' + k);
+      if (k in local) throw fail(ctx, 'параметр ' + k + ' функции ' + name + '() получил значение дважды');
+      local[k] = kw[k];
+    }
+    ps.forEach((p, i) => {
+      if (p.name in local) return;
+      if (f.defaults[i] === undefined) throw fail(ctx, 'при вызове ' + name + '() не передан аргумент ' + p.name);
+      local[p.name] = f.defaults[i];
+    });
+    if (ctx.depth >= MAX_DEPTH) {
+      throw fail(ctx, 'слишком глубокая рекурсия (больше ' + MAX_DEPTH + ' вложенных вызовов) — проверьте, есть ли у функции ' + name + '() условие остановки');
+    }
+    const saved = { vars: ctx.vars, frame: ctx.frame, line: ctx.line };
+    ctx.vars = local;
+    ctx.frame = { def: d };
+    ctx.depth++;
+    let r;
+    try {
+      r = yield* execBlock(d.body, ctx);
+    } finally {
+      ctx.vars = saved.vars;
+      ctx.frame = saved.frame;
+      ctx.line = saved.line;
+      ctx.depth--;
+    }
+    return r instanceof Ret ? r.v : null;
   }
 
   function* execBlock(body, ctx) {
@@ -955,11 +1155,11 @@
     ctx.line = s.line;
     switch (s.k) {
       case 'expr':
-        evaluate(s.e, ctx);
+        yield* evalTop(s.e, ctx);
         yield step(ctx, s.line);
         return;
       case 'assign': {
-        const v = evaluate(s.value, ctx);
+        const v = yield* evalTop(s.value, ctx);
         for (const t of s.targets) assign(t, v, ctx);
         yield step(ctx, s.line);
         return;
@@ -971,8 +1171,18 @@
         return;
       }
       case 'pass':
+      case 'global':
         yield step(ctx, s.line);
         return;
+      case 'def':
+        setVar(s.name, makeFunc(s, ctx), ctx);
+        yield step(ctx, s.line);
+        return;
+      case 'return': {
+        const v = s.value ? yield* evalTop(s.value, ctx) : null;
+        yield step(ctx, s.line);
+        return new Ret(v);
+      }
       case 'break':
       case 'continue':
         yield step(ctx, s.line);
@@ -992,24 +1202,30 @@
           const c = truthy(evaluate(s.cond, ctx));
           yield step(ctx, s.line);
           if (!c) return;
-          if ((yield* execBlock(s.body, ctx)) === 'break') return;
+          const r = yield* execBlock(s.body, ctx);
+          if (r === 'break') return;
+          if (r instanceof Ret) return r;
         }
       case 'for': {
         const seq = seqOf(evaluate(s.iter, ctx), ctx, true);
         if (Array.isArray(seq)) {
           // список проходим «вживую», как в Python
           for (let i = 0; i < seq.length; i++) {
-            ctx.vars[s.target] = seq[i];
+            setVar(s.target, seq[i], ctx);
             ctx.line = s.line;
             yield step(ctx, s.line);
-            if ((yield* execBlock(s.body, ctx)) === 'break') return;
+            const r = yield* execBlock(s.body, ctx);
+            if (r === 'break') return;
+            if (r instanceof Ret) return r;
           }
         } else {
           for (const v of seq) {
-            ctx.vars[s.target] = v;
+            setVar(s.target, v, ctx);
             ctx.line = s.line;
             yield step(ctx, s.line);
-            if ((yield* execBlock(s.body, ctx)) === 'break') return;
+            const r = yield* execBlock(s.body, ctx);
+            if (r === 'break') return;
+            if (r instanceof Ret) return r;
           }
         }
         return;
@@ -1139,6 +1355,28 @@
       argCount('list', args, 0, 1, ctx);
       return args.length ? Array.from(seqOf(args[0], ctx)) : [];
     }),
+    sorted: B('sorted', (args, kw, ctx) => {
+      for (const k of Object.keys(kw)) if (k !== 'reverse') throw fail(ctx, 'функция sorted() не знает параметра ' + k);
+      argCount('sorted', args, 1, 1, ctx);
+      return sortList(Array.from(seqOf(args[0], ctx)), truthy(kw.reverse === undefined ? false : kw.reverse), ctx);
+    }),
+    reversed: B('reversed', (args, kw, ctx) => {
+      noKw('reversed', kw, ctx);
+      argCount('reversed', args, 1, 1, ctx);
+      return Array.from(seqOf(args[0], ctx)).reverse();
+    }),
+    ord: B('ord', (args, kw, ctx) => {
+      noKw('ord', kw, ctx);
+      argCount('ord', args, 1, 1, ctx);
+      if (typeof args[0] !== 'string' || Array.from(args[0]).length !== 1) throw fail(ctx, 'ord() ожидает строку из одного символа');
+      return args[0].codePointAt(0);
+    }),
+    chr: B('chr', (args, kw, ctx) => {
+      noKw('chr', kw, ctx);
+      argCount('chr', args, 1, 1, ctx);
+      if (!isIntLike(args[0]) || args[0] < 0 || args[0] > 0x10ffff) throw fail(ctx, 'chr() ожидает целое число — код символа');
+      return String.fromCodePoint(+args[0]);
+    }),
     type: B('type', (args, kw, ctx) => {
       noKw('type', kw, ctx);
       argCount('type', args, 1, 1, ctx);
@@ -1162,7 +1400,7 @@
   function run(code, opts) {
     opts = opts || {};
     const g = steps(code, Object.assign({}, opts, { snap: !!opts.trace }));
-    const trace = [];
+    const trace = g.ctx.trace || [];
     const result = (ok, err) => ({
       ok,
       output: g.ctx.out.join(''),
@@ -1174,7 +1412,7 @@
     });
     try {
       let r;
-      while (!(r = g.next()).done) if (opts.trace) trace.push(r.value);
+      while (!(r = g.next()).done);
       return result(true, null);
     } catch (e) {
       return result(false, e instanceof PyError ? e : new PyError('внутренняя ошибка интерпретатора: ' + e.message));
