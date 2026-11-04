@@ -48,7 +48,7 @@ const Lock = (function () {
     const msg = h('p', { class: 'bad-text' });
 
     const unlock = action => {
-      if (pin.value !== String(CONFIG.teacherPin)) {
+      if (!Pin.check(pin.value)) {
         msg.textContent = t('teacher.pin.wrong');
         pin.value = '';
         FX.shake(pin);

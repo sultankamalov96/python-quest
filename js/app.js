@@ -256,7 +256,7 @@ const App = (function () {
     const input = h('input', { type: 'password', inputmode: 'numeric', class: 'input', autocomplete: 'off', placeholder: 'PIN' });
     const msg = h('p', { class: 'bad-text' });
     const tryPin = () => {
-      if (input.value === String(CONFIG.teacherPin)) { setTeacher(true); go('#/teacher'); return true; }
+      if (Pin.check(input.value)) { setTeacher(true); go('#/teacher'); return true; }
       msg.textContent = t('teacher.pin.wrong');
       FX.shake(input);
       Sound.play('bad');

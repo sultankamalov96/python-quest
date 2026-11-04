@@ -125,6 +125,35 @@ const Teacher = (function () {
     return false;
   }
 
+  // ---------------------------------------------------------------- смена PIN
+  function pinPanel() {
+    const field = label => h('input', { type: 'password', inputmode: 'numeric', class: 'input', autocomplete: 'off', maxlength: '8', 'aria-label': label, placeholder: label });
+    const oldPin = field(t('pin.old')), newPin = field(t('pin.new')), repeat = field(t('pin.repeat'));
+    const msg = h('p', { class: 'small', 'aria-live': 'polite' });
+    const status = () => (Pin.isCustom()
+      ? t('pin.statusCustom', { d: new Date(Pin.current().at).toLocaleDateString('ru-RU') })
+      : t('pin.statusConfig'));
+    const statusEl = h('p', { class: 'muted small' }, status());
+    const save = () => {
+      const err = Pin.change(oldPin.value.trim(), newPin.value.trim(), repeat.value.trim());
+      if (err) { msg.className = 'bad-text small'; msg.textContent = err; FX.shake(msg); Sound.play('bad'); return; }
+      oldPin.value = newPin.value = repeat.value = '';
+      msg.className = 'ok-text small';
+      msg.textContent = t('pin.changed');
+      statusEl.textContent = status();
+      FX.toast(t('pin.changedShort'), '🔑');
+      Sound.play('ok');
+    };
+    [oldPin, newPin, repeat].forEach(f => f.addEventListener('keydown', e => { if (e.key === 'Enter') save(); }));
+    return h('section', { class: 'panel' }, h('h2', null, '🔑 ' + t('pin.title')),
+      h('div', { class: 'tch-col tch-pin' },
+        statusEl, oldPin, newPin, repeat,
+        h('button', { class: 'btn primary', onclick: save }, t('pin.save')),
+        msg,
+        h('p', { class: 'muted small' }, t('pin.note')),
+        Pin.isCustom() ? h('button', { class: 'btn small ghost', onclick: () => { Pin.reset(); FX.toast(t('pin.resetDone'), '🔑'); App.route(); } }, t('pin.reset')) : ''));
+  }
+
   // ---------------------------------------------------------------- панель учителя
   function render(v) {
     if (!guard()) return;
@@ -150,6 +179,7 @@ const Teacher = (function () {
             h('button', { class: 'btn', onclick: () => { App.setTeacher(false); App.go('#/'); } }, t('teacher.exit')))),
         h('section', { class: 'panel' }, h('h2', null, t('teacher.26')),
           h('div', { class: 'tch-games' }, Games.ORDER.map(id => h('a', { class: 'chip', href: '#/game/' + id }, Games.ICONS[id] + ' ' + t('game.' + id))))),
+        pinPanel(),
         h('section', { class: 'panel' }, h('h2', null, t('teacher.27')),
           h('p', null, t('teacher.28'), h('b', { class: 'tch-word' }, CONFIG.questWord), h('span', { class: 'muted small' }, t('teacher.29'))),
           h('p', { class: 'muted' }, t('teacher.30') + Quest.doneCount() + t('teacher.31')),

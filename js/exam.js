@@ -28,21 +28,25 @@ const Exam = (function () {
     } catch (e) { /* без сохранения */ }
   }
 
-  // Подпись ссылки: если ученик изменит в ней число вопросов или время, ссылка перестанет действовать
-  function sign(id, count, time) {
+  // Подпись ссылки: если ученик изменит в ней число вопросов, время или PIN, ссылка перестанет действовать
+  function sign(id, count, time, p, pa) {
     let x = 5381;
-    for (const ch of id + ':' + count + ':' + time + ':' + CONFIG.teacherPin) x = ((x * 33) ^ ch.charCodeAt(0)) >>> 0;
+    for (const ch of id + ':' + count + ':' + time + (p ? ':' + p + ':' + pa : '') + ':' + CONFIG.teacherPin) x = ((x * 33) ^ ch.charCodeAt(0)) >>> 0;
     return x.toString(36);
   }
+  // В ссылку попадают и настройки теста, и новый PIN, если учитель сменил его в режиме учителя
   function link(id) {
-    const st = settings(id);
-    return location.href.split('#')[0] + '#/tests/' + id + '?n=' + st.count + '&t=' + st.time + '&k=' + sign(id, st.count, st.time);
+    const st = settings(id), pin = Pin.current();
+    const p = pin ? '&p=' + pin.h + '&pa=' + pin.at : '';
+    return location.href.split('#')[0] + '#/tests/' + id + '?n=' + st.count + '&t=' + st.time + p +
+      '&k=' + sign(id, st.count, st.time, pin && pin.h, pin && pin.at);
   }
   // Ссылка только сохраняет настройки и открывает список тестов — ученик сам нажимает «Начать»
   function applyLink(id, q) {
-    const count = +q.get('n'), time = +q.get('t');
-    if (q.get('k') === sign(id, count, time)) {
+    const count = +q.get('n'), time = +q.get('t'), p = q.get('p'), pa = q.get('pa');
+    if (q.get('k') === sign(id, count, time, p, pa)) {
       saveSettings(id, { count, time });
+      if (p && Pin.accept(p, +pa)) FX.toast(t('pin.received'), '🔑');
       // начатая, но ещё пустая попытка заменяется попыткой с новыми настройками
       const old = stored();
       if (old && old.id === id && !old.answers.some(x => x !== undefined && x !== null)) clear();
