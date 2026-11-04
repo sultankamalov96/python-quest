@@ -182,7 +182,12 @@ const Exam = (function () {
           h('span', { class: 'muted' }, t('exam.answered', { n: answered, total: N })),
           a.limit ? timerEl : ''),
         h('div', { class: 'bar' }, h('span', { style: { width: (answered / N * 100) + '%' } })),
-        Lock.watchesExams() ? h('p', { class: 'ex-lock-note' }, '🔒 ' + t('lock.examNote')) : '');
+        Lock.watchesExams() ? h('p', { class: 'ex-lock-note' }, '🔒 ' + t('lock.examNote'))
+          // учитель видит, почему блокировка не срабатывает, и может проверить её как ученик
+          : App.teacher && (CONFIG.lock || 'exam') !== 'off'
+            ? h('p', { class: 'ex-lock-note teacher' }, '🎓 ' + t('lock.teacherOff') + ' ',
+              h('button', { class: 'btn small', onclick: () => { App.setTeacher(false); App.route(); } }, t('lock.teacherExit')))
+            : '');
 
       map.innerHTML = '';
       a.qs.forEach((_, i) => map.append(h('button', {

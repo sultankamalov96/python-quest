@@ -1255,3 +1255,4 @@ pre.code {
 .tch-pin .input { max-width: 260px; }
 .tch-pin .btn.primary { align-self: flex-start; }
 .ok-text { color: var(--ok); font-weight: 600; margin: 0; }
+.ex-lock-note.teacher { background: color-mix(in srgb, var(--primary) 12%, var(--card)); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
