@@ -26,24 +26,25 @@
 <div id="total" class="summary"></div>
 <div id="out"></div>
 
-<script src="data/config.js?v=20261104c"></script>
-<script src="js/i18n.js?v=20261104c"></script>
-<script src="data/tasks.js?v=20261104c"></script>
-<script src="data/levels.js?v=20261104c"></script>
-<script src="data/quiz.js?v=20261104c"></script>
-<script src="data/exams.js?v=20261104c"></script>
-<script src="js/engine.js?v=20261104c"></script>
-<script src="js/flowchart.js?v=20261104c"></script>
-<script src="js/games/robot.js?v=20261104c"></script>
-<script src="js/games/truefalse.js?v=20261104c"></script>
-<script src="js/games/count.js?v=20261104c"></script>
-<script src="js/games/turtle.js?v=20261104c"></script>
-<script src="js/games/tracer.js?v=20261104c"></script>
-<script src="js/games/memory.js?v=20261104c"></script>
-<script src="js/games/quiz.js?v=20261104c"></script>
-<script src="js/games/duel.js?v=20261104c"></script>
-<script src="js/games/minesweeper.js?v=20261104c"></script>
-<script src="js/games/bazaar.js?v=20261104c"></script>
+<script src="data/config.js?v=20261104d"></script>
+<script src="js/i18n.js?v=20261104d"></script>
+<script src="data/tasks.js?v=20261104d"></script>
+<script src="data/levels.js?v=20261104d"></script>
+<script src="data/quiz.js?v=20261104d"></script>
+<script src="data/exams.js?v=20261104d"></script>
+<script src="js/engine.js?v=20261104d"></script>
+<script src="js/pictures.js?v=20261104d"></script>
+<script src="js/flowchart.js?v=20261104d"></script>
+<script src="js/games/robot.js?v=20261104d"></script>
+<script src="js/games/truefalse.js?v=20261104d"></script>
+<script src="js/games/count.js?v=20261104d"></script>
+<script src="js/games/turtle.js?v=20261104d"></script>
+<script src="js/games/tracer.js?v=20261104d"></script>
+<script src="js/games/memory.js?v=20261104d"></script>
+<script src="js/games/quiz.js?v=20261104d"></script>
+<script src="js/games/duel.js?v=20261104d"></script>
+<script src="js/games/minesweeper.js?v=20261104d"></script>
+<script src="js/games/bazaar.js?v=20261104d"></script>
 <script>
 // ------------------------------------------------------------------ тесты интерпретатора
 // out — ожидаемый вывод (точно), err — подстрока ожидаемой ошибки
@@ -509,15 +510,19 @@ function checkExams(section) {
   const flat = out => out.trim().split(/\s+/).join(' ');
   for (const [id, ex] of Object.entries(EXAMS)) {
     const qs = ex.questions;
-    const s = section('Тест «' + ex.title + '» (' + qs.length + ' вопросов, нужно 60)');
-    s.items.push({ name: 'вопросов ровно 60', ok: qs.length === 60 });
-    const keys = qs.map(q => q.q + '|' + (q.code || ''));
+    const need = ex.expected || 60;
+    const s = section('Тест «' + ex.title + '» (' + qs.length + ' вопросов, нужно ' + need + ')');
+    s.items.push({ name: 'вопросов ровно ' + need, ok: qs.length === need });
+    // вопросы с одинаковым текстом отличаются кодом, картинкой или верным ответом
+    const keys = qs.map(q => q.q + '|' + (q.code || '') + '|' + (q.img || '') + '|' + q.options[0]);
     s.items.push({ name: 'вопросы не повторяются', ok: new Set(keys).size === keys.length });
     let checked = 0;
     qs.forEach((q, i) => {
       const errs = [];
       if (!q.q || !q.explain) errs.push('нужны q и explain');
       if (!Array.isArray(q.options) || q.options.length !== 4 || new Set(q.options).size !== 4) errs.push('нужно 4 разных варианта');
+      if (q.img && !Pictures.has(q.img)) errs.push('нет картинки «' + q.img + '» в js/pictures.js');
+      if (q.pics) q.options.forEach(o => { if (!Pictures.has(o)) errs.push('нет картинки-варианта «' + o + '»'); });
       if (q.code) {
         const r = Py.run(q.code, { inputs: q.inputs || [] });
         if (q.check === 'error') { if (r.ok) errs.push('код должен завершаться ошибкой'); }

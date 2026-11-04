@@ -112,6 +112,12 @@ const Exam = (function () {
   }
 
   const gradeText = g => t('exam.grade' + g);
+
+  // Картинка к вопросу и вариант-картинка с подписью (js/pictures.js)
+  const qPic = q => (q.img ? h('div', { class: 'ex-pic', html: Pictures.svg(q.img) }) : null);
+  const optNode = (q, text, small) => (q.pics
+    ? h('span', { class: 'ex-picopt' + (small ? ' small' : ''), html: Pictures.svg(text) + '<span>' + Highlight.esc(Pictures.label(text)) + '</span>' })
+    : h('code', null, text));
   const passedCount = () => Object.keys(EXAMS).filter(id => store()[id]).length;
 
   // ---------------------------------------------------------------- список тестов
@@ -125,7 +131,7 @@ const Exam = (function () {
         const ex = EXAMS[id], rec = store()[id], cont = saved && saved.id === id;
         const meta = h('p', { class: 'ex-meta' }, metaText(id));
         return h('div', { class: 'ex-card' },
-          h('div', { class: 'ex-card-head' }, h('span', { class: 'ex-icon' }, ex.icon), h('div', null, h('h2', null, ex.title), h('p', { class: 'muted' }, ex.subtitle))),
+          h('div', { class: 'ex-card-head' }, h('span', { class: 'ex-icon' }, ex.icon), h('div', null, h('h2', null, ex.title, ex.badge ? h('span', { class: 'ex-badge' }, ex.badge) : null), h('p', { class: 'muted' }, ex.subtitle))),
           meta,
           rec
             ? h('div', { class: 'ex-best' }, h('span', { class: 'ex-grade small g' + rec.bestGrade }, rec.bestGrade),
@@ -199,15 +205,18 @@ const Exam = (function () {
       card.innerHTML = '';
       card.append(...[
         h('div', { class: 'ex-qtext', html: rich(q.q) }),
+        qPic(q),
         q.code ? h('div', { html: Highlight.code(q.code) }) : null,
         q.inputs && q.inputs.length ? h('p', { class: 'muted' }, '⌨ ' + t('exam.inputs') + ' ', h('code', null, q.inputs.join(', '))) : null,
-        h('div', { class: 'ex-options', role: 'radiogroup' }, item.order.map((oi, k) => {
+        h('div', { class: 'ex-options' + (q.pics ? ' pics' : ''), role: 'radiogroup' }, item.order.map((oi, k) => {
           const text = q.options[oi];
           const isCode = /[()=<>%"'\[\]*]|^-?\d/.test(text) && !/[а-яё]{4,}/i.test(text);
           return h('button', {
-            class: 'ex-opt' + (a.answers[a.cur] === k ? ' sel' : ''), role: 'radio', 'aria-checked': a.answers[a.cur] === k ? 'true' : 'false',
+            class: 'ex-opt' + (q.pics ? ' pic' : '') + (a.answers[a.cur] === k ? ' sel' : ''), role: 'radio', 'aria-checked': a.answers[a.cur] === k ? 'true' : 'false',
+            'aria-label': q.pics ? LET[k] + ') ' + Pictures.label(text) : null,
             onclick: () => choose(k)
-          }, h('span', { class: 'ex-let' }, LET[k]), h('span', { class: 'ex-otext', html: isCode ? '<code>' + Highlight.esc(text) + '</code>' : Highlight.esc(text) }));
+          }, h('span', { class: 'ex-let' }, LET[k]),
+            q.pics ? optNode(q, text) : h('span', { class: 'ex-otext', html: isCode ? '<code>' + Highlight.esc(text) + '</code>' : Highlight.esc(text) }));
         }))].filter(Boolean));
 
       foot.innerHTML = '';
@@ -320,10 +329,11 @@ const Exam = (function () {
         if (onlyWrong && ok) return;
         reviewBox.append(h('article', { class: 'ex-item ' + (ok ? 'ok' : 'bad') },
           h('div', { class: 'ex-item-head' }, h('b', null, (ok ? '✔ ' : '✘ ') + (i + 1) + '.'), h('span', { html: rich(q.q) })),
+          qPic(q),
           q.code ? h('div', { html: Highlight.code(q.code) }) : null,
           h('ul', { class: 'ex-ans' }, item.order.map((oi, k) => {
             const cls = k === item.answer ? 'right' : k === mine ? 'wrong' : '';
-            return h('li', { class: cls }, h('b', null, LET[k] + ') '), h('code', null, q.options[oi]),
+            return h('li', { class: cls }, h('b', null, LET[k] + ') '), optNode(q, q.options[oi], true),
               k === item.answer ? h('span', { class: 'ex-tag' }, ' ✔ ' + t('exam.correct')) : null,
               k === mine && k !== item.answer ? h('span', { class: 'ex-tag' }, ' ✘ ' + t('exam.yours')) : null);
           })),
@@ -353,8 +363,9 @@ const Exam = (function () {
       h('div', { class: 'row no-print' }, h('button', { class: 'btn', onclick: () => window.print() }, '🖨 ' + t('exam.printAll'))),
       h('div', { class: 'ex-review' }, ex.questions.map((q, i) => h('article', { class: 'ex-item' },
         h('div', { class: 'ex-item-head' }, h('b', null, (i + 1) + '.'), h('span', { html: rich(q.q) })),
+        qPic(q),
         q.code ? h('div', { html: Highlight.code(q.code) }) : null,
-        h('ul', { class: 'ex-ans' }, q.options.map((o, k) => h('li', { class: k === 0 ? 'right' : '' }, h('code', null, o), k === 0 ? h('span', { class: 'ex-tag' }, ' ✔') : null))),
+        h('ul', { class: 'ex-ans' + (q.pics ? ' pics' : '') }, q.options.map((o, k) => h('li', { class: k === 0 ? 'right' : '' }, optNode(q, o, true), k === 0 ? h('span', { class: 'ex-tag' }, ' ✔') : null))),
         h('p', { class: 'ex-explain', html: '💡 ' + rich(q.explain) })))));
   }
 
@@ -376,9 +387,10 @@ const Exam = (function () {
           const q = question(id, item);
           return h('article', { class: 'pr-task' },
             h('p', null, h('b', null, (i + 1) + '. '), h('span', { html: rich(q.q) })),
+            qPic(q),
             q.code ? h('div', { html: Highlight.code(q.code) }) : null,
             q.inputs && q.inputs.length ? h('p', null, t('exam.inputs') + ' ', h('code', null, q.inputs.join(', '))) : null,
-            h('div', { class: 'pr-opts' }, item.order.map((oi, k) => h('span', null, '☐ ' + LET[k] + ') ', h('code', null, q.options[oi])))));
+            h('div', { class: 'pr-opts' + (q.pics ? ' pics' : '') }, item.order.map((oi, k) => h('span', null, '☐ ' + LET[k] + ') ', optNode(q, q.options[oi], true)))));
         })),
       h('div', { class: 'pr-sheet pr-answers' },
         h('h2', null, t('exam.key') + ' · ' + ex.title + ' · ' + t('exam.variant', { n: variant })),
