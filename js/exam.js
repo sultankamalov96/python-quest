@@ -73,12 +73,25 @@ const Exam = (function () {
   // Попытка: случайные вопросы, варианты перемешаны; answer — где теперь верный вариант
   function build(id) {
     const bank = EXAMS[id].questions;
-    return mix(bank.map((_, i) => i)).slice(0, settings(id).count).map(src => {
+    return pickIndexes(bank, settings(id).count).map(src => {
       const order = mix([0, 1, 2, 3]);
       return { src, order, answer: order.indexOf(0) };
     });
   }
   const question = (id, item) => EXAMS[id].questions[item.src];
+
+  // Какие вопросы попадут в попытку. Если у вопросов есть темы (topic), берём из всех тем поровну —
+  // по очереди по одному из каждой темы, — а потом перемешиваем.
+  function pickIndexes(bank, count) {
+    const all = mix(bank.map((_, i) => i));
+    if (!bank.some(q => q.topic)) return all.slice(0, count);
+    const groups = {};
+    all.forEach(i => { const tp = bank[i].topic || ''; (groups[tp] = groups[tp] || []).push(i); });
+    const queues = mix(Object.values(groups));
+    const out = [];
+    while (out.length < count && queues.some(g => g.length)) queues.forEach(g => { if (g.length && out.length < count) out.push(g.shift()); });
+    return mix(out);
+  }
 
   // Начатая попытка переживает перезагрузку страницы
   function load(id) {
@@ -444,5 +457,5 @@ const Exam = (function () {
       linkBox);
   }
 
-  return { list, run, all, printVariant, summary, passedCount, grade, active, noteExit, forceFinish, settings, sign };
+  return { list, run, all, printVariant, summary, passedCount, grade, active, noteExit, forceFinish, settings, sign, pickIndexes };
 })();

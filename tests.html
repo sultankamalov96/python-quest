@@ -26,25 +26,25 @@
 <div id="total" class="summary"></div>
 <div id="out"></div>
 
-<script src="data/config.js?v=20261104d"></script>
-<script src="js/i18n.js?v=20261104d"></script>
-<script src="data/tasks.js?v=20261104d"></script>
-<script src="data/levels.js?v=20261104d"></script>
-<script src="data/quiz.js?v=20261104d"></script>
-<script src="data/exams.js?v=20261104d"></script>
-<script src="js/engine.js?v=20261104d"></script>
-<script src="js/pictures.js?v=20261104d"></script>
-<script src="js/flowchart.js?v=20261104d"></script>
-<script src="js/games/robot.js?v=20261104d"></script>
-<script src="js/games/truefalse.js?v=20261104d"></script>
-<script src="js/games/count.js?v=20261104d"></script>
-<script src="js/games/turtle.js?v=20261104d"></script>
-<script src="js/games/tracer.js?v=20261104d"></script>
-<script src="js/games/memory.js?v=20261104d"></script>
-<script src="js/games/quiz.js?v=20261104d"></script>
-<script src="js/games/duel.js?v=20261104d"></script>
-<script src="js/games/minesweeper.js?v=20261104d"></script>
-<script src="js/games/bazaar.js?v=20261104d"></script>
+<script src="data/config.js?v=20261104e"></script>
+<script src="js/i18n.js?v=20261104e"></script>
+<script src="data/tasks.js?v=20261104e"></script>
+<script src="data/levels.js?v=20261104e"></script>
+<script src="data/quiz.js?v=20261104e"></script>
+<script src="data/exams.js?v=20261104e"></script>
+<script src="js/engine.js?v=20261104e"></script>
+<script src="js/pictures.js?v=20261104e"></script>
+<script src="js/flowchart.js?v=20261104e"></script>
+<script src="js/games/robot.js?v=20261104e"></script>
+<script src="js/games/truefalse.js?v=20261104e"></script>
+<script src="js/games/count.js?v=20261104e"></script>
+<script src="js/games/turtle.js?v=20261104e"></script>
+<script src="js/games/tracer.js?v=20261104e"></script>
+<script src="js/games/memory.js?v=20261104e"></script>
+<script src="js/games/quiz.js?v=20261104e"></script>
+<script src="js/games/duel.js?v=20261104e"></script>
+<script src="js/games/minesweeper.js?v=20261104e"></script>
+<script src="js/games/bazaar.js?v=20261104e"></script>
 <script>
 // ------------------------------------------------------------------ тесты интерпретатора
 // out — ожидаемый вывод (точно), err — подстрока ожидаемой ошибки
@@ -537,6 +537,10 @@ function checkExams(section) {
       s.items.push({ name: (i + 1) + '. ' + q.q + (q.check ? ' ✓' : ''), ok: !errs.length, code: q.code, detail: errs.join('\n') });
     });
     s.title += ' — проверено интерпретатором: ' + checked;
+    if (qs.some(q => q.topic)) {
+      const topics = Array.from(new Set(qs.map(q => q.topic)));
+      s.items.push({ name: 'у каждого вопроса указана тема (' + topics.length + ' тем)', ok: qs.every(q => q.topic) });
+    }
   }
 }
 

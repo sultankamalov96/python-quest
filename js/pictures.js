@@ -91,7 +91,60 @@ const Pictures = (function () {
       '<g stroke="' + DARK + '" stroke-width="2">' + [36, 48, 60, 72, 84].map(y => '<line x1="10" y1="' + y + '" x2="150" y2="' + y + '"/>').join('') + '</g>' +
       '<g fill="' + DARK + '"><ellipse cx="44" cy="78" rx="9" ry="6.5" transform="rotate(-20 44 78)"/><rect x="51" y="28" width="3" height="50"/>' +
       '<ellipse cx="84" cy="66" rx="9" ry="6.5" transform="rotate(-20 84 66)"/><rect x="91" y="18" width="3" height="48"/>' +
-      '<ellipse cx="120" cy="54" rx="9" ry="6.5" transform="rotate(-20 120 54)"/><rect x="127" y="12" width="3" height="42"/><path d="M94 18 L130 12 L130 20 L94 26Z"/></g>']
+      '<ellipse cx="120" cy="54" rx="9" ry="6.5" transform="rotate(-20 120 54)"/><rect x="127" y="12" width="3" height="42"/><path d="M94 18 L130 12 L130 20 L94 26Z"/></g>'],
+    // ---- файлы и папки
+    folder: ['Папка',
+      '<path d="M16 28 L62 28 L72 38 L144 38 L144 100 L16 100Z" fill="#f5b83d"/><path d="M16 46 L144 46 L144 100 L16 100Z" fill="#ffcf5c"/>'],
+    filetext: ['Текстовый документ',
+      '<path d="M46 8 L102 8 L122 28 L122 112 L46 112Z" fill="#fff" stroke="' + MID + '" stroke-width="3"/><path d="M102 8 L102 28 L122 28" fill="' + LIGHT + '" stroke="' + MID + '" stroke-width="3"/>' +
+      [44, 56, 68, 80, 92].map(y => '<line x1="58" y1="' + y + '" x2="' + (y === 92 ? 92 : 110) + '" y2="' + y + '" stroke="' + BLUE + '" stroke-width="4" stroke-linecap="round"/>').join('')],
+    fileimage: ['Рисунок (картинка)',
+      '<path d="M46 8 L102 8 L122 28 L122 112 L46 112Z" fill="#fff" stroke="' + MID + '" stroke-width="3"/><path d="M102 8 L102 28 L122 28" fill="' + LIGHT + '" stroke="' + MID + '" stroke-width="3"/>' +
+      '<rect x="56" y="40" width="56" height="52" rx="3" fill="' + SCREEN + '"/><path d="M56 92 L74 66 L86 80 L96 70 L112 92Z" fill="#5fb85f"/><circle cx="70" cy="54" r="6" fill="#ffd54a"/>'],
+    filemusic: ['Музыка (звук)',
+      '<path d="M46 8 L102 8 L122 28 L122 112 L46 112Z" fill="#fff" stroke="' + MID + '" stroke-width="3"/><path d="M102 8 L102 28 L122 28" fill="' + LIGHT + '" stroke="' + MID + '" stroke-width="3"/>' +
+      '<g fill="#a855f7"><ellipse cx="72" cy="88" rx="9" ry="7"/><ellipse cx="100" cy="80" rx="9" ry="7"/><rect x="78" y="42" width="4" height="46"/><rect x="106" y="36" width="4" height="44"/><path d="M78 42 L110 36 L110 46 L78 52Z"/></g>'],
+    // ---- рабочий стол и окна
+    desktop: ['Рабочий стол',
+      '<rect x="8" y="8" width="144" height="98" rx="4" fill="#3a7bd5"/><path d="M8 80 C 50 60, 90 96, 152 70 L152 98 L8 98Z" fill="#5aa0ef"/>' +
+      '<rect x="18" y="18" width="16" height="13" rx="2" fill="#ffcf5c"/><rect x="18" y="40" width="14" height="16" rx="1" fill="#fff"/><rect x="18" y="64" width="16" height="13" rx="2" fill="#c8ccd6"/>' +
+      '<rect x="8" y="98" width="144" height="14" fill="' + DARK + '"/><rect x="12" y="101" width="9" height="8" rx="1" fill="#4aa3ff"/><rect x="26" y="101" width="18" height="8" rx="1" fill="' + MID + '"/><rect x="48" y="101" width="18" height="8" rx="1" fill="' + MID + '"/><text x="146" y="108" text-anchor="end" font-family="sans-serif" font-size="7" fill="#fff">10:30</text>'],
+    window: ['Окно',
+      '<rect x="10" y="12" width="140" height="96" rx="5" fill="#fff" stroke="' + MID + '" stroke-width="3"/><rect x="10" y="12" width="140" height="20" rx="5" fill="' + LIGHT + '"/>' +
+      '<rect x="10" y="26" width="140" height="6" fill="' + LIGHT + '"/><text x="18" y="27" font-family="sans-serif" font-size="9" fill="' + DARK + '">Документ</text>' +
+      '<text x="104" y="28" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="14" fill="' + DARK + '">–</text>' +
+      '<rect x="114" y="18" width="9" height="8" fill="none" stroke="' + DARK + '" stroke-width="1.6"/>' +
+      '<rect x="128" y="14" width="18" height="16" rx="2" fill="#e5484d"/><text x="137" y="27" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="12" fill="#fff">✕</text>' +
+      [46, 58, 70, 82].map(y => '<line x1="22" y1="' + y + '" x2="' + (y === 82 ? 90 : 136) + '" y2="' + y + '" stroke="' + LIGHT + '" stroke-width="5" stroke-linecap="round"/>').join('')],
+    trash: ['Корзина',
+      '<rect x="52" y="20" width="56" height="8" rx="3" fill="' + MID + '"/><rect x="70" y="12" width="20" height="8" rx="3" fill="' + MID + '"/>' +
+      '<path d="M56 32 L104 32 L98 108 L62 108Z" fill="#c8ccd6" stroke="' + MID + '" stroke-width="3"/>' +
+      '<line x1="70" y1="44" x2="72" y2="98" stroke="' + MID + '" stroke-width="3"/><line x1="80" y1="44" x2="80" y2="98" stroke="' + MID + '" stroke-width="3"/><line x1="90" y1="44" x2="88" y2="98" stroke="' + MID + '" stroke-width="3"/>'],
+    // ---- безопасность
+    padlock: ['Замок (пароль)',
+      '<path d="M56 54 L56 38 C 56 14, 104 14, 104 38 L104 54" stroke="' + MID + '" stroke-width="10" fill="none"/>' +
+      '<rect x="40" y="52" width="80" height="58" rx="8" fill="#f5b83d"/><circle cx="80" cy="76" r="8" fill="' + DARK + '"/><rect x="77" y="80" width="6" height="16" rx="2" fill="' + DARK + '"/>'],
+    virus: ['Компьютерный вирус',
+      '<g stroke="#4caf50" stroke-width="5" stroke-linecap="round">' + [0, 45, 90, 135, 180, 225, 270, 315].map(a => { const r = a * Math.PI / 180; return '<line x1="80" y1="60" x2="' + (80 + 46 * Math.cos(r)).toFixed(1) + '" y2="' + (60 + 46 * Math.sin(r)).toFixed(1) + '"/>'; }).join('') + '</g>' +
+      [0, 45, 90, 135, 180, 225, 270, 315].map(a => { const r = a * Math.PI / 180; return '<circle cx="' + (80 + 48 * Math.cos(r)).toFixed(1) + '" cy="' + (60 + 48 * Math.sin(r)).toFixed(1) + '" r="6" fill="#2e7d32"/>'; }).join('') +
+      '<circle cx="80" cy="60" r="30" fill="#66bb6a"/><circle cx="70" cy="54" r="5" fill="#1b3d1d"/><circle cx="90" cy="54" r="5" fill="#1b3d1d"/><path d="M68 72 Q 80 64, 92 72" stroke="#1b3d1d" stroke-width="4" fill="none" stroke-linecap="round"/>'],
+    shield: ['Антивирус',
+      '<path d="M80 8 L130 26 C 130 70, 110 98, 80 112 C 50 98, 30 70, 30 26Z" fill="#2563eb"/><path d="M80 18 L120 32 C 120 68, 104 90, 80 102Z" fill="#3b82f6"/>' +
+      '<path d="M58 60 L74 76 L104 44" stroke="#fff" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'],
+    email: ['Электронное письмо',
+      '<rect x="16" y="26" width="128" height="80" rx="6" fill="#fff" stroke="' + MID + '" stroke-width="3"/><path d="M18 30 L80 74 L142 30" stroke="' + MID + '" stroke-width="3" fill="none"/>' +
+      '<circle cx="132" cy="28" r="13" fill="#e5484d"/><text x="132" y="33" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="14" fill="#fff">@</text>'],
+    // ---- кодирование
+    binary: ['Двоичный код',
+      '<rect x="8" y="16" width="144" height="88" rx="8" fill="' + DARK + '"/>' +
+      ['01001011', '10110100', '01101001', '11010010'].map((row, i) => '<text x="80" y="' + (40 + i * 19) + '" text-anchor="middle" font-family="monospace" font-weight="700" font-size="17" fill="#5fe08a" letter-spacing="2">' + row + '</text>').join('')],
+    morse: ['Азбука Морзе',
+      '<rect x="8" y="30" width="144" height="60" rx="8" fill="#fff8e1" stroke="#e0c070" stroke-width="2"/>' +
+      (() => { const code = '.-/-.../.--'; let x = 17, s = ''; for (const c of code) { if (c === '.') { s += '<circle cx="' + (x + 3.5) + '" cy="60" r="3.8" fill="' + DARK + '"/>'; x += 10; } else if (c === '-') { s += '<rect x="' + x + '" y="56" width="11" height="8" rx="4" fill="' + DARK + '"/>'; x += 15; } else x += 9; } return s; })()],
+    barcode: ['Штрих-код',
+      '<rect x="14" y="14" width="132" height="92" rx="6" fill="#fff" stroke="' + LIGHT + '" stroke-width="2"/>' +
+      (() => { const w = [3, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 2]; let x = 26, s = ''; w.forEach((k, i) => { if (i % 2 === 0) s += '<rect x="' + x + '" y="24" width="' + k * 2 + '" height="58" fill="#111"/>'; x += k * 2 + 1; }); return s; })() +
+      '<text x="80" y="98" text-anchor="middle" font-family="monospace" font-size="11" fill="#111" letter-spacing="2">4 600123 45678</text>']
   };
 
   function svg(key) {
