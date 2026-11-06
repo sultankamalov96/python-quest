@@ -188,7 +188,7 @@ const Progress = (function () {
     { id: 'quest', icon: '🗝️', test: () => !!s.stats.questDone },
     { id: 'p1000', icon: '🏅', test: () => total() >= 1000 },
     { id: 'p5000', icon: '👑', test: () => total() >= 5000 },
-    { id: 'exams', icon: '📝', test: () => typeof EXAMS !== 'undefined' && Object.keys(EXAMS).every(k => s.exams && s.exams[k] && s.exams[k].bestGrade === 5) }
+    { id: 'exams', icon: '📝', test: () => typeof EXAMS !== 'undefined' && Object.keys(EXAMS).filter(k => !EXAMS[k].badge).every(k => s.exams && s.exams[k] && s.exams[k].bestGrade === 5) }
   ];
 
   function checkAchievements() {

@@ -12,6 +12,11 @@ const Pictures = (function () {
     return s;
   };
 
+  // Сочетание клавиш: две клавиши со знаком «+» между ними
+  const keycap = (x, text) => '<rect x="' + x + '" y="36" width="62" height="54" rx="9" fill="' + MID + '"/><rect x="' + x + '" y="32" width="62" height="50" rx="9" fill="#fff" stroke="' + DARK + '" stroke-width="2.5"/>' +
+    '<text x="' + (x + 31) + '" y="65" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="21" fill="' + DARK + '">' + text + '</text>';
+  const combo = (a, b) => [a + ' + ' + b, keycap(6, a) + '<text x="80" y="66" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="24" fill="' + DARK + '">+</text>' + keycap(92, b)];
+
   const ART = {
     monitor: ['Монитор',
       '<rect x="22" y="12" width="116" height="76" rx="6" fill="' + DARK + '"/><rect x="30" y="19" width="100" height="61" rx="2" fill="' + SCREEN + '"/>' +
@@ -144,7 +149,28 @@ const Pictures = (function () {
     barcode: ['Штрих-код',
       '<rect x="14" y="14" width="132" height="92" rx="6" fill="#fff" stroke="' + LIGHT + '" stroke-width="2"/>' +
       (() => { const w = [3, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 2]; let x = 26, s = ''; w.forEach((k, i) => { if (i % 2 === 0) s += '<rect x="' + x + '" y="24" width="' + k * 2 + '" height="58" fill="#111"/>'; x += k * 2 + 1; }); return s; })() +
-      '<text x="80" y="98" text-anchor="middle" font-family="monospace" font-size="11" fill="#111" letter-spacing="2">4 600123 45678</text>']
+      '<text x="80" y="98" text-anchor="middle" font-family="monospace" font-size="11" fill="#111" letter-spacing="2">4 600123 45678</text>'],
+    // ---- виды информации
+    tongue: ['Язык',
+      '<path d="M20 44 Q 80 20, 140 44 Q 128 104, 80 108 Q 32 104, 20 44Z" fill="#7a2b34"/><path d="M24 44 Q 80 26, 136 44 L 132 54 Q 80 40, 28 54Z" fill="#fff"/>' +
+      '<path d="M50 62 Q 80 50, 110 62 Q 110 100, 80 102 Q 50 100, 50 62Z" fill="#ef7f8f"/><line x1="80" y1="60" x2="80" y2="90" stroke="#c9566a" stroke-width="3" stroke-linecap="round"/>'],
+    book: ['Книга',
+      '<path d="M80 26 C 62 14, 34 14, 14 22 L 14 100 C 34 92, 62 92, 80 104Z" fill="#fff" stroke="' + DARK + '" stroke-width="3"/><path d="M80 26 C 98 14, 126 14, 146 22 L 146 100 C 126 92, 98 92, 80 104Z" fill="#fff" stroke="' + DARK + '" stroke-width="3"/>' +
+      [36, 48, 60, 72].map(y => '<line x1="26" y1="' + y + '" x2="68" y2="' + (y + 3) + '" stroke="' + MID + '" stroke-width="3"/><line x1="92" y1="' + (y + 3) + '" x2="134" y2="' + y + '" stroke="' + MID + '" stroke-width="3"/>').join('')],
+    painting: ['Картина',
+      '<rect x="18" y="12" width="124" height="96" rx="3" fill="#b5793a"/><rect x="28" y="22" width="104" height="76" fill="' + SCREEN + '"/>' +
+      '<path d="M28 84 L60 52 L80 72 L100 48 L132 84 L132 98 L28 98Z" fill="#5fb85f"/><circle cx="108" cy="38" r="9" fill="#ffd54a"/>'],
+    // ---- сочетания клавиш
+    ctrlC: combo('Ctrl', 'C'),
+    ctrlV: combo('Ctrl', 'V'),
+    ctrlX: combo('Ctrl', 'X'),
+    ctrlZ: combo('Ctrl', 'Z'),
+    ctrlA: combo('Ctrl', 'A'),
+    ctrlS: combo('Ctrl', 'S'),
+    ctrlP: combo('Ctrl', 'P'),
+    altF4: combo('Alt', 'F4'),
+    altTab: combo('Alt', 'Tab'),
+    shiftA: combo('Shift', 'А')
   };
 
   function svg(key) {

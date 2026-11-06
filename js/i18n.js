@@ -209,10 +209,10 @@ const I18N = {
     'badge.p5000': 'Легенда класса',
     'badge.p5000.desc': 'Набрать 5000 очков',
     'badge.exams': 'Отличник',
-    'badge.exams.desc': 'Сдать все три теста на «5»',
+    'badge.exams.desc': 'Сдать все три теста по Python на «5»',
 
     'home.tests': 'Тесты',
-    'home.tests.desc': 'Проверь себя: основы, условия, циклы. Оценка от 2 до 5',
+    'home.tests.desc': 'Проверь себя: Python и информатика. Оценка от 2 до 5',
     'home.tests.meta': 'Пройдено тестов: {n} из {total}',
 
     'exam.title': 'Тесты',
