@@ -13,7 +13,17 @@ const Results = (function () {
 
   // ---------------------------------------------------------------- адрес и ключ
   // Принимаем только адрес веб-приложения Google Apps Script — чтобы результаты не ушли на чужой сайт
-  const validUrl = u => /^https:\/\/script\.google(usercontent)?\.com\/[\w\-\/.?=&%]+$/.test(String(u || '').trim());
+  // Нужен именно URL веб-приложения: https://script.google.com/macros/s/…/exec
+  // (у школьного аккаунта Google Workspace — https://script.google.com/a/macros/домен/s/…/exec)
+  const validUrl = u => /^https:\/\/script\.google\.com\/(a\/macros\/[\w.\-]+|macros)\/s\/[\w\-]{20,}\/exec$/.test(String(u || '').trim());
+  // Почему адрес не подходит — чтобы учитель понял, что скопировал не то
+  function urlProblem(u) {
+    u = String(u || '').trim();
+    if (/\/dev$/.test(u)) return t('res.errUrlDev');
+    if (/script\.google\.com\/(home|d\/)/.test(u)) return t('res.errUrlEditor');
+    if (/docs\.google\.com\/spreadsheets/.test(u)) return t('res.errUrlSheet');
+    return t('res.errUrl');
+  }
   const configUrl = () => (typeof CONFIG !== 'undefined' && CONFIG.results && CONFIG.results.url) || '';
   const url = () => read(K.url, '') || configUrl();
   function setUrl(u) {
@@ -66,8 +76,13 @@ const Results = (function () {
     try {
       const r = await fetch(url() + (url().indexOf('?') < 0 ? '?' : '&') + 'key=' + encodeURIComponent(key()), { cache: 'no-store' });
       j = await r.json();
-    } catch (e) { throw new Error(t('res.errNet')); }
-    if (!j || !j.ok) throw new Error(j && j.error === 'key' ? t('res.errKey') : t('res.errNet'));
+    } catch (e) {
+      // Google отвечает, но не результатами (обычно — страницей входа): значит, у веб-приложения закрыт доступ
+      if (/\/a\/macros\//.test(url())) throw new Error(t('res.errDomain'));
+      const reachable = await fetch(url(), { mode: 'no-cors', cache: 'no-store' }).then(() => true, () => false);
+      throw new Error(t(reachable ? 'res.errAccess' : 'res.errNet'));
+    }
+    if (!j || !j.ok) throw new Error(j && j.error === 'key' ? t('res.errKey') : t('res.errAccess'));
     return j;
   }
 
@@ -119,7 +134,7 @@ const Results = (function () {
     const save = () => {
       if (!keyIn.value.trim()) keyIn.value = newKey();
       setKey(keyIn.value);
-      if (!setUrl(urlIn.value)) { say(false, t('res.errUrl')); FX.shake(urlIn); return false; }
+      if (!setUrl(urlIn.value)) { say(false, urlProblem(urlIn.value)); FX.shake(urlIn); return false; }
       say(true, t('res.savedSettings'));
       statusEl.textContent = url() ? t('res.statusOn') : t('res.statusOff');
       return true;
