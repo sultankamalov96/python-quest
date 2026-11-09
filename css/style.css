@@ -1299,3 +1299,18 @@ pre.code {
 .res-panel .tch-col { max-width: 760px; }
 .res-panel .tch-col > .btn { align-self: flex-start; }
 .res-panel label .input { max-width: none; font-family: var(--mono); }
+
+/* ==========================================================================
+   Что видят ученики (js/visibility.js)
+   ========================================================================== */
+.vis-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 12px 0; }
+.vis-group { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px 12px; margin: 0; min-width: 0; }
+.vis-group legend { font-weight: 800; padding: 0 6px; }
+.vis-quick { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.vis-items { display: flex; flex-direction: column; gap: 2px; }
+.vis-item { display: flex; gap: 8px; align-items: flex-start; padding: 4px 2px; cursor: pointer; }
+.vis-item input { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--primary); }
+.vis-off { opacity: .55; }
+.nav a.vis-off { opacity: .45; }
+.vis-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--bg2); color: var(--muted); font-size: 12px; font-weight: 700; vertical-align: middle; white-space: nowrap; }
+.nav a[hidden] { display: none; }

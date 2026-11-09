@@ -184,6 +184,7 @@ const Teacher = (function () {
           h('p', null, t('teacher.28'), h('b', { class: 'tch-word' }, CONFIG.questWord), h('span', { class: 'muted small' }, t('teacher.29'))),
           h('p', { class: 'muted' }, t('teacher.30') + Quest.doneCount() + t('teacher.31')),
           h('button', { class: 'btn', onclick: () => { Quest.reset(); FX.toast(t('teacher.questRestarted'), '🗝️'); App.route(); } }, t('teacher.32')))),
+      Vis.panel(),
       Results.panel(),
       h('section', { class: 'panel' },
         h('h2', null, t('teacher.33')),

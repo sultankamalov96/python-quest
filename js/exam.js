@@ -147,11 +147,12 @@ const Exam = (function () {
     v.append(
       h('div', { class: 'page-head' }, h('h1', null, '📝 ' + t('exam.title')),
         h('p', { class: 'lead' }, t('exam.lead2'))),
-      h('div', { class: 'ex-cards' }, Object.keys(EXAMS).map(id => {
+      Object.keys(EXAMS).some(id => Vis.open('test:' + id)) ? null : h('p', { class: 'empty muted' }, '🙈 ' + t('vis.nothing')),
+      h('div', { class: 'ex-cards' }, Object.keys(EXAMS).filter(id => Vis.open('test:' + id)).map(id => {
         const ex = EXAMS[id], rec = store()[id], cont = saved && saved.id === id;
         const meta = h('p', { class: 'ex-meta' }, metaText(id));
-        return h('div', { class: 'ex-card' },
-          h('div', { class: 'ex-card-head' }, h('span', { class: 'ex-icon' }, ex.icon), h('div', null, h('h2', null, ex.title, ex.badge ? h('span', { class: 'ex-badge' }, ex.badge) : null), h('p', { class: 'muted' }, ex.subtitle))),
+        return h('div', { class: 'ex-card' + (Vis.isHidden('test:' + id) ? ' vis-off' : '') },
+          h('div', { class: 'ex-card-head' }, h('span', { class: 'ex-icon' }, ex.icon), h('div', null, h('h2', null, ex.title, ex.badge ? h('span', { class: 'ex-badge' }, ex.badge) : null, Vis.mark('test:' + id)), h('p', { class: 'muted' }, ex.subtitle))),
           meta,
           rec
             ? h('div', { class: 'ex-best' }, ex.points ? null : h('span', { class: 'ex-grade small g' + rec.bestGrade }, rec.bestGrade),

@@ -127,7 +127,8 @@ const App = (function () {
     [/^\/tests\/(\w+)\/print$/, m => Exam.printVariant(view(), m[1])],
     [/^\/achievements$/, renderAchievements],
     [/^\/teacher$/, () => Teacher.render(view())],
-    [/^\/results$/, () => Results.page(view())]
+    [/^\/results$/, () => Results.page(view())],
+    [/^\/v$/, () => Vis.applyLink()]
   ];
 
   function route() {
@@ -140,6 +141,9 @@ const App = (function () {
     v.innerHTML = '';
     v.className = 'view';
     window.scrollTo(0, 0);
+    // учитель скрыл этот раздел, тест, игру или тему (js/visibility.js)
+    Vis.applyNav();
+    if (Vis.blocked(path)) { FX.toast(t('vis.closed'), '🙈'); return go('#/'); }
     const section = path.split('/')[1] || '';
     $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.section === section ||
       (a.dataset.section === 'puzzles' && section === 'task') || (a.dataset.section === 'games' && section === 'game')));
@@ -277,21 +281,25 @@ const App = (function () {
     const solved = TASKS.filter(x => s.tasks[x.id]).length;
     const word = String(CONFIG.questWord);
     const letters = typeof Quest !== 'undefined' ? Quest.openLetters() : 0;
-    const card = (href, cls, icon, title, desc, meta) =>
-      h('a', { class: 'home-card ' + cls, href }, h('span', { class: 'home-icon' }, icon),
-        h('span', { class: 'home-title' }, title), h('span', { class: 'home-desc' }, desc), h('span', { class: 'home-meta' }, meta));
+    // раздел, скрытый учителем, ученик не видит (js/visibility.js)
+    const card = (href, cls, icon, title, desc, meta) => {
+      const key = 'section:' + href.slice(2);
+      if (!Vis.open(key)) return null;
+      return h('a', { class: 'home-card ' + cls + (Vis.isHidden(key) ? ' vis-off' : ''), href }, h('span', { class: 'home-icon' }, icon),
+        h('span', { class: 'home-title' }, title, Vis.mark(key)), h('span', { class: 'home-desc' }, desc), h('span', { class: 'home-meta' }, meta));
+    };
     view().append(
       h('section', { class: 'hero' },
         h('h1', null, t('home.hello', { name: s.name || '👋' })),
         h('p', { class: 'lead' }, t('home.lead'))),
-      h('div', { class: 'home-grid' },
+      h('div', { class: 'home-grid' }, ...[
         card('#/puzzles', 'c-puzzles', '🧩', t('home.puzzles'), t('home.puzzles.desc'), t('home.solved', { n: solved, total: TASKS.length })),
         card('#/games', 'c-games', '🎮', t('home.games'), t('home.games.desc'), t('home.games.count', { n: Games.ORDER.length })),
         card('#/tests', 'c-tests', '📝', t('home.tests'), t('home.tests.desc'), t('home.tests.meta', { n: Exam.passedCount(), total: Object.keys(EXAMS).length })),
         card('#/quest', 'c-quest', '🗝️', t('home.quest'), t('home.quest.desc'), t('home.quest.letters', { n: letters, total: word.length })),
         card('#/achievements', 'c-ach', '🏆', t('home.achievements'), t('home.achievements.desc'),
           t('home.badges', { n: Object.keys(s.ach).length, total: Progress.ACHIEVEMENTS.length }))
-      )
+      ].filter(Boolean))
     );
   }
 
@@ -300,17 +308,21 @@ const App = (function () {
     const s = Progress.state;
     view().append(
       h('div', { class: 'page-head' }, h('h1', null, t('puzzles.title')), h('p', { class: 'lead' }, t('puzzles.lead'))),
-      h('div', { class: 'topic-grid' }, TOPICS.map(n => {
+      emptyIfNone(TOPICS.filter(n => Vis.open('topic:' + n)).length),
+      h('div', { class: 'topic-grid' }, TOPICS.filter(n => Vis.open('topic:' + n)).map(n => {
         const all = TASKS.filter(x => x.topic === n);
         const done = all.filter(x => s.tasks[x.id]).length;
-        return h('a', { class: 'topic-card', href: '#/puzzles/' + n },
+        return h('a', { class: 'topic-card' + (Vis.isHidden('topic:' + n) ? ' vis-off' : ''), href: '#/puzzles/' + n },
           h('span', { class: 'topic-num' }, n),
-          h('span', { class: 'topic-name' }, t('topic.' + n)),
+          h('span', { class: 'topic-name' }, t('topic.' + n), Vis.mark('topic:' + n)),
           h('span', { class: 'topic-meta', html: starsHTML(Progress.topicStars(n)) + ' <span>' + done + ' / ' + all.length + '</span>' }),
           h('span', { class: 'bar' }, h('span', { style: { width: (all.length ? done / all.length * 100 : 0) + '%' } })));
       }))
     );
   }
+
+  // учитель скрыл всё в разделе — подсказка вместо пустой страницы
+  const emptyIfNone = n => (n ? null : h('p', { class: 'empty muted' }, '🙈 ' + t('vis.nothing')));
 
   const filters = { type: 'all', level: 0 };
 
@@ -347,7 +359,7 @@ const App = (function () {
   }
 
   function nextTask(task) {
-    const ordered = TOPICS.flatMap(n => TASKS.filter(x => x.topic === n));
+    const ordered = TOPICS.filter(n => Vis.open('topic:' + n)).flatMap(n => TASKS.filter(x => x.topic === n));
     const i = ordered.indexOf(task);
     const rest = ordered.slice(i + 1).concat(ordered.slice(0, i));
     return rest.find(x => !Progress.state.tasks[x.id]) || ordered[i + 1] || null;
@@ -448,12 +460,13 @@ const App = (function () {
   function renderGames() {
     view().append(
       h('div', { class: 'page-head' }, h('h1', null, t('games.title')), h('p', { class: 'lead' }, t('games.lead'))),
-      h('div', { class: 'game-grid' }, Games.ORDER.map(id => {
+      emptyIfNone(Games.ORDER.filter(id => Vis.open('game:' + id)).length),
+      h('div', { class: 'game-grid' }, Games.ORDER.filter(id => Vis.open('game:' + id)).map(id => {
         const ready = !!Games.get(id);
         const n = Progress.levelCount(id);
-        return h('a', { class: 'game-card' + (ready ? '' : ' soon'), href: '#/game/' + id },
+        return h('a', { class: 'game-card' + (ready ? '' : ' soon') + (Vis.isHidden('game:' + id) ? ' vis-off' : ''), href: '#/game/' + id },
           h('span', { class: 'game-icon' }, Games.ICONS[id]),
-          h('span', { class: 'game-title' }, t('game.' + id)),
+          h('span', { class: 'game-title' }, t('game.' + id), Vis.mark('game:' + id)),
           h('span', { class: 'game-desc' }, t('game.' + id + '.desc')),
           h('span', { class: 'game-meta', html: ready ? starsHTML(Progress.gameStars(id)) + (n ? ' <span>' + Progress.levelsDone(id) + ' / ' + n + '</span>' : '') : '<span class="soon-tag">' + t('games.soon') + '</span>' }));
       }))

@@ -296,13 +296,19 @@ function setup() {
   Logger.log('Готово: лист «' + SHEET + '» создан. Теперь сделайте развёртывание как веб-приложение.');
 }
 
-// Ученик закончил тест — сайт присылает результат
+// Ученик закончил тест — сайт присылает результат. Учитель меняет, что видят ученики, — тоже сюда (с ключом).
 function doPost(e) {
   if (!e || !e.postData) return reply({ ok: false, error: 'Эту функцию вызывает сайт. Для проверки запустите setup.' });
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     const r = JSON.parse(e.postData.contents);
+    if (r && r.action === 'visibility') {
+      if (r.key !== KEY) return reply({ ok: false, error: 'key' });
+      const hidden = (Array.isArray(r.hidden) ? r.hidden : []).slice(0, 300).map(x => String(x).slice(0, 40));
+      PropertiesService.getScriptProperties().setProperty('visibility', JSON.stringify({ hidden: hidden, at: Number(r.at) || 0 }));
+      return reply({ ok: true });
+    }
     if (!r || !r.id) return reply({ ok: false, error: 'data' });
     const sh = table();
     const n = sh.getLastRow() - 1;
@@ -319,8 +325,13 @@ function doPost(e) {
   }
 }
 
-// Учитель открыл результаты на сайте — отдаём их, только если ключ верный
+// Что видят ученики — сайт спрашивает это у всех, ключ не нужен.
+// Результаты — только учителю, если ключ верный.
 function doGet(e) {
+  if (e && e.parameter && e.parameter.action === 'visibility') {
+    const v = PropertiesService.getScriptProperties().getProperty('visibility');
+    return reply(Object.assign({ ok: true, hidden: [], at: 0 }, v ? JSON.parse(v) : {}));
+  }
   if (!e || !e.parameter || !e.parameter.key || e.parameter.key !== KEY) return reply({ ok: false, error: 'key' });
   const sh = table();
   const n = sh.getLastRow() - 1;
