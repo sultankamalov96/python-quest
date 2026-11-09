@@ -1272,3 +1272,28 @@ pre.code {
 .pr-sheet .ex-pic { width: 200px; border: 1px solid #999; }
 @media (max-width: 560px) { .ex-opt.pic { padding: 8px; } }
 .projector .ex-pic { width: min(460px, 60%); }
+
+/* ==========================================================================
+   Результаты тестов (js/results.js)
+   ========================================================================== */
+.res-student { max-width: 520px; display: flex; flex-direction: column; gap: 12px; }
+.res-student h1 { margin: 0; }
+.res-student label { display: flex; flex-direction: column; gap: 4px; font-weight: 700; }
+.res-steps { margin: 4px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.res-send { font-weight: 700; }
+.res-bar { margin-bottom: 8px; }
+.res-bar .input { width: auto; flex: 1 1 160px; min-width: 0; }
+.res-summary { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-weight: 700; }
+.res-g { padding: 1px 8px; border-radius: 999px; background: var(--bg2); }
+.res-g.g5 { color: var(--ok); } .res-g.g2 { color: var(--bad); }
+.res-table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
+.res-table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.res-table th, .res-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.res-table th { background: var(--bg2); white-space: nowrap; }
+.res-table .nowrap { white-space: nowrap; }
+.res-table .ex-grade.small { margin: 0; }
+.res-empty { padding: 16px; margin: 0; }
+@media print { .res-table-wrap { overflow: visible; border: 0; } .res-table { font-size: 12px; } }
+.res-panel .tch-col { max-width: 760px; }
+.res-panel .tch-col > .btn { align-self: flex-start; }
+.res-panel label .input { max-width: none; font-family: var(--mono); }

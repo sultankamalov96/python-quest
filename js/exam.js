@@ -11,13 +11,15 @@ const Exam = (function () {
   const cfg = () => Object.assign({ count: 20, time: 0, grades: { 5: 85, 4: 70, 3: 50 } }, CONFIG.exams || {});
   const SKEY = 'pyquest.examSettings';
 
-  // Настройки теста: сохранённые учителем на этом устройстве (или полученные по ссылке), иначе — из config.js
+  // Настройки теста: сохранённые учителем на этом устройстве (или полученные по ссылке),
+  // иначе — из самого теста (data/exams.js), иначе — из config.js
   function settings(id) {
     let own = {};
     try { own = (JSON.parse(localStorage.getItem(SKEY) || '{}'))[id] || {}; } catch (e) { own = {}; }
-    const n = EXAMS[id].questions.length;
-    const count = Math.round(Number(own.count !== undefined ? own.count : cfg().count));
-    const time = Math.round(Number(own.time !== undefined ? own.time : cfg().time));
+    const ex = EXAMS[id], n = ex.questions.length;
+    const pick = k => (own[k] !== undefined ? own[k] : ex[k] !== undefined ? ex[k] : cfg()[k]);
+    const count = Math.round(Number(pick('count')));
+    const time = Math.round(Number(pick('time')));
     return { count: Math.min(n, Math.max(1, count || 1)), time: Math.min(300, Math.max(0, time || 0)) };
   }
   function saveSettings(id, st) {
@@ -28,25 +30,27 @@ const Exam = (function () {
     } catch (e) { /* без сохранения */ }
   }
 
-  // Подпись ссылки: если ученик изменит в ней число вопросов, время или PIN, ссылка перестанет действовать
-  function sign(id, count, time, p, pa) {
+  // Подпись ссылки: если ученик изменит в ней число вопросов, время, PIN или адрес для результатов, ссылка перестанет действовать
+  function sign(id, count, time, p, pa, r) {
     let x = 5381;
-    for (const ch of id + ':' + count + ':' + time + (p ? ':' + p + ':' + pa : '') + ':' + CONFIG.teacherPin) x = ((x * 33) ^ ch.charCodeAt(0)) >>> 0;
+    for (const ch of id + ':' + count + ':' + time + (p ? ':' + p + ':' + pa : '') + (r ? ':' + r : '') + ':' + CONFIG.teacherPin) x = ((x * 33) ^ ch.charCodeAt(0)) >>> 0;
     return x.toString(36);
   }
-  // В ссылку попадают и настройки теста, и новый PIN, если учитель сменил его в режиме учителя
+  // В ссылку попадают настройки теста, новый PIN, если учитель сменил его в режиме учителя,
+  // и адрес Google Таблицы для результатов, если он задан в режиме учителя, а не в config.js
   function link(id) {
-    const st = settings(id), pin = Pin.current();
+    const st = settings(id), pin = Pin.current(), r = EXAMS[id].results ? Results.linkUrl() : '';
     const p = pin ? '&p=' + pin.h + '&pa=' + pin.at : '';
-    return location.href.split('#')[0] + '#/tests/' + id + '?n=' + st.count + '&t=' + st.time + p +
-      '&k=' + sign(id, st.count, st.time, pin && pin.h, pin && pin.at);
+    return location.href.split('#')[0] + '#/tests/' + id + '?n=' + st.count + '&t=' + st.time + p + (r ? '&r=' + encodeURIComponent(r) : '') +
+      '&k=' + sign(id, st.count, st.time, pin && pin.h, pin && pin.at, r);
   }
   // Ссылка только сохраняет настройки и открывает список тестов — ученик сам нажимает «Начать»
   function applyLink(id, q) {
-    const count = +q.get('n'), time = +q.get('t'), p = q.get('p'), pa = q.get('pa');
-    if (q.get('k') === sign(id, count, time, p, pa)) {
+    const count = +q.get('n'), time = +q.get('t'), p = q.get('p'), pa = q.get('pa'), r = q.get('r');
+    if (q.get('k') === sign(id, count, time, p, pa, r)) {
       saveSettings(id, { count, time });
       if (p && Pin.accept(p, +pa)) FX.toast(t('pin.received'), '🔑');
+      if (r) Results.setUrl(r);
       // начатая, но ещё пустая попытка заменяется попыткой с новыми настройками
       const old = stored();
       if (old && old.id === id && !old.answers.some(x => x !== undefined && x !== null)) clear();
@@ -116,7 +120,7 @@ const Exam = (function () {
   }
   // Учитель завершает тест с экрана блокировки
   function forceFinish() {
-    if (finishFn) return finishFn();
+    if (finishFn) return finishFn('teacher');
     const a = stored();
     if (!a) return;
     a.forceFinish = true;
@@ -153,18 +157,21 @@ const Exam = (function () {
           h('div', { class: 'row wrap' },
             h('a', { class: 'btn primary', href: '#/tests/' + id }, cont ? '▶ ' + t('exam.continue') : '▶ ' + t('exam.start')),
             App.teacher ? h('a', { class: 'btn small ghost', href: '#/tests/' + id + '/all' }, '👁 ' + t('exam.all')) : null,
-            App.teacher ? h('a', { class: 'btn small ghost', href: '#/tests/' + id + '/print' }, '🖨 ' + t('exam.printVariant')) : null),
+            App.teacher ? h('a', { class: 'btn small ghost', href: '#/tests/' + id + '/print' }, '🖨 ' + t('exam.printVariant')) : null,
+            App.teacher && ex.results ? h('a', { class: 'btn small ghost', href: '#/results' }, '📊 ' + t('res.title')) : null),
           App.teacher ? settingsPanel(id, meta) : null);
       })),
       h('p', { class: 'muted small' }, t('exam.scale', { a: g[5], b: g[4], c: g[3] })));
   }
 
   // ---------------------------------------------------------------- прохождение
-  function run(v, id) {
+  function run(v, id, student) {
     if (!EXAMS[id]) return App.go('#/tests');
     if (App.query.has('k')) return applyLink(id, App.query);
     let a = load(id);
-    if (!a) { a = { id, qs: build(id), answers: [], cur: 0, start: Date.now(), exits: 0, limit: settings(id).time }; save(a); }
+    // тест с результатами для учителя: перед началом ученик пишет имя и класс
+    if (!a && EXAMS[id].results && !student) return Results.studentForm(v, EXAMS[id], metaText(id), st => { v.innerHTML = ''; run(v, id, st); });
+    if (!a) { a = { id, qs: build(id), answers: [], cur: 0, start: Date.now(), exits: 0, limit: settings(id).time, student: student || null }; save(a); }
     current = a;
     finishFn = finish;
     const ex = EXAMS[id];
@@ -269,6 +276,7 @@ const Exam = (function () {
     function finish(expired) {
       clearInterval(timer);
       if (expired === true) a.expired = true;
+      if (expired === 'teacher') a.byTeacher = true;
       clear();
       current = null;
       finishFn = null;
@@ -286,6 +294,7 @@ const Exam = (function () {
       store()[id] = rec;
       Progress.levelDone('exams', id, g - 2, right * 5);
       App.updateScore();
+      if (ex.results) a.sending = Results.record(resultRecord(id, a, right, pct, g));
       result(v, id, a, right, pct, g, record && rec.attempts > 1);
     }
 
@@ -299,10 +308,31 @@ const Exam = (function () {
     document.addEventListener('keydown', onKey);
     App.onLeave(() => { document.removeEventListener('keydown', onKey); clearInterval(timer); current = null; finishFn = null; });
     // учитель выбрал «завершить тест» на экране блокировки, когда ученик был на другой странице
-    if (a.forceFinish) return finish();
+    if (a.forceFinish) return finish('teacher');
     if (a.limit && left() <= 0) return finish(true);
     draw();
     if (a.limit) { tick(); timer = setInterval(tick, 1000); }
+  }
+
+  // Запись для учителя (js/results.js): кто, когда, сколько верно и по каким темам
+  function resultRecord(id, a, right, pct, g) {
+    const ex = EXAMS[id], by = {};
+    a.qs.forEach((item, i) => {
+      const tp = question(id, item).topic || '';
+      const o = by[tp] = by[tp] || [0, 0];
+      o[1]++;
+      if (a.answers[i] === item.answer) o[0]++;
+    });
+    const order = Object.keys(EXAMS);
+    const topics = Object.keys(by).filter(Boolean).sort((x, y) => order.indexOf(x) - order.indexOf(y))
+      .map(tp => (EXAMS[tp] ? EXAMS[tp].title : tp) + ' ' + by[tp][0] + '/' + by[tp][1]).join('; ');
+    const note = [a.expired ? t('res.noteTime') : '', a.byTeacher ? t('res.noteTeacher') : ''].filter(Boolean).join(', ');
+    return {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), at: Date.now(),
+      name: a.student ? a.student.name : Progress.state.name || '', cls: a.student ? a.student.cls : '',
+      test: id, title: ex.title, right, total: a.qs.length, pct, grade: g, topics,
+      minutes: Math.max(1, Math.round((Date.now() - a.start) / 60000)), exits: a.exits || 0, note
+    };
   }
 
   // ---------------------------------------------------------------- результат и разбор
@@ -323,10 +353,11 @@ const Exam = (function () {
         h('div', null,
           h('h1', null, gradeText(g)),
           h('p', { class: 'ex-score' }, t('exam.score', { r: right, n: N, p: pct })),
-          h('p', { class: 'muted' }, ex.icon + ' ' + ex.title + ' · ' + (Progress.state.name || '') + ' · ' + new Date().toLocaleDateString('ru-RU') + ' · ' + t('exam.time', { m: mins }) + (a.limit ? ' ' + t('exam.of', { m: a.limit }) : '')),
+          h('p', { class: 'muted' }, ex.icon + ' ' + ex.title + ' · ' + (a.student ? a.student.name + ', ' + a.student.cls : Progress.state.name || '') + ' · ' + new Date().toLocaleDateString('ru-RU') + ' · ' + t('exam.time', { m: mins }) + (a.limit ? ' ' + t('exam.of', { m: a.limit }) : '')),
           a.expired ? h('p', { class: 'ex-exits' }, '⏱ ' + t('exam.timeUp')) : null,
           newBest ? h('p', { class: 'tf-record' }, '🏆 ' + t('exam.newBest')) : null,
-          a.exits ? h('p', { class: 'ex-exits' }, '⚠ ' + t('lock.exits', { n: a.exits })) : null)),
+          a.exits ? h('p', { class: 'ex-exits' }, '⚠ ' + t('lock.exits', { n: a.exits })) : null,
+          a.sending ? Results.statusNode(a.sending) : null)),
       h('div', { class: 'row wrap no-print' },
         h('button', { class: 'btn primary', onclick: () => { clear(); App.route(); } }, '↺ ' + t('exam.again')),
         h('a', { class: 'btn', href: '#/tests' }, t('exam.toList')),

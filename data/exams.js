@@ -394,3 +394,29 @@ const EXAMS = {
     ]
   }
 };
+
+// Итоговый тест по Python: по 25 вопросов из тестов «Основы Python», «Условные операторы» и «Циклы».
+// Вопросы берутся через равный шаг по всему тесту, чтобы попали все подтемы. topic — из какого теста вопрос:
+// в попытку вопросы берутся из всех трёх тестов поровну. results: true — результат уходит учителю (js/results.js).
+(function () {
+  const PART = ['basics', 'conditions', 'loops'];
+  const take = (id, n) => {
+    const qs = EXAMS[id].questions;
+    return Array.from({ length: n }, (_, i) => Object.assign({}, qs[Math.floor(i * qs.length / n)], { topic: id }));
+  };
+  const final = {
+    title: 'Python: итоговый тест',
+    subtitle: 'Основы Python, условные операторы и циклы — вопросы из всех трёх тестов. Результат получает учитель.',
+    icon: '🐍',
+    badge: 'итоговый',
+    expected: 75,
+    count: 30,
+    time: 30,
+    results: true,
+    questions: [].concat(...PART.map(id => take(id, 25)))
+  };
+  // в списке тестов итоговый идёт сразу после трёх тестов по Python
+  const rest = {};
+  Object.keys(EXAMS).filter(k => PART.indexOf(k) < 0).forEach(k => { rest[k] = EXAMS[k]; delete EXAMS[k]; });
+  Object.assign(EXAMS, { final }, rest);
+})();

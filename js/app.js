@@ -126,7 +126,8 @@ const App = (function () {
     [/^\/tests\/(\w+)\/all$/, m => Exam.all(view(), m[1])],
     [/^\/tests\/(\w+)\/print$/, m => Exam.printVariant(view(), m[1])],
     [/^\/achievements$/, renderAchievements],
-    [/^\/teacher$/, () => Teacher.render(view())]
+    [/^\/teacher$/, () => Teacher.render(view())],
+    [/^\/results$/, () => Results.page(view())]
   ];
 
   function route() {
