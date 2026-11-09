@@ -171,6 +171,8 @@ const Results = (function () {
       h('div', { class: 'page-head' }, h('h1', null, '📊 ' + t('res.title')), status),
       box);
 
+    const hasPoints = r => r.maxPoints !== '' && r.maxPoints !== undefined && r.maxPoints !== null && +r.maxPoints > 0;
+    const num = x => x.toLocaleString('ru-RU');
     const fmt = ms => { const d = new Date(ms); return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); };
     const out = new Set(outbox().map(x => x.id));
     const filtered = () => rows.filter(r => (!F.test || r.title === F.test) && (!F.cls || r.cls === F.cls) && (!F.q || String(r.name).toLowerCase().indexOf(F.q.toLowerCase()) >= 0));
@@ -205,11 +207,15 @@ const Results = (function () {
 
       function drawTable() {
         const list = filtered();
-        const gs = [5, 4, 3, 2].map(g => list.filter(r => +r.grade === g).length);
-        const av = list.length ? (list.reduce((s, r) => s + (+r.grade || 0), 0) / list.length).toFixed(1) : '—';
+        // тесты с баллами — средний балл, тесты с оценкой — средняя оценка и сколько каких оценок
+        const pts = list.filter(r => hasPoints(r)), grd = list.filter(r => !hasPoints(r) && +r.grade);
+        const avg = (rs, f) => num(Math.round(rs.reduce((s, r) => s + f(r), 0) / rs.length * 10) / 10);
+        const maxes = Array.from(new Set(pts.map(r => +r.maxPoints)));
         summary.innerHTML = '';
-        summary.append(t('res.count', { n: list.length }) + ' · ' + t('res.avg', { a: av }) + ' · ',
-          ...[5, 4, 3, 2].map((g, i) => h('span', { class: 'res-g g' + g }, g + ': ' + gs[i])));
+        summary.append(t('res.count', { n: list.length }),
+          pts.length ? ' · ' + t('res.avgPts', { a: avg(pts, r => +r.points), m: maxes.length === 1 ? maxes[0] : '…' }) : '',
+          grd.length ? ' · ' + t('res.avg', { a: avg(grd, r => +r.grade) }) + ' · ' : '',
+          ...(grd.length ? [5, 4, 3, 2].map(g => h('span', { class: 'res-g g' + g }, g + ': ' + grd.filter(r => +r.grade === g).length)) : []));
         tableBox.innerHTML = '';
         if (!list.length) { tableBox.append(h('p', { class: 'muted res-empty' }, t('res.empty'))); return; }
         tableBox.append(h('table', { class: 'res-table' },
@@ -219,7 +225,9 @@ const Results = (function () {
             h('td', null, h('b', null, r.name)),
             h('td', null, r.cls),
             h('td', null, r.title),
-            h('td', null, h('span', { class: 'ex-grade small g' + r.grade }, r.grade)),
+            h('td', { class: 'nowrap' }, hasPoints(r)
+              ? h('span', { class: 'ex-grade small pts g' + Exam.grade(+r.pct) }, num(+r.points) + ' / ' + r.maxPoints)
+              : h('span', { class: 'ex-grade small g' + r.grade }, r.grade)),
             h('td', { class: 'nowrap' }, r.right + '/' + r.total + ' (' + r.pct + '%)'),
             h('td', { class: 'small' }, r.topics),
             h('td', { class: 'nowrap' }, t('exam.minutes', { m: r.minutes })),
@@ -245,8 +253,8 @@ const Results = (function () {
     function csv() {
       const list = filtered();
       const cell = x => { let s = String(x === undefined || x === null ? '' : x); if (/^[=+\-@]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
-      const head = ['res.colDate', 'res.colName', 'res.colClass', 'res.colTest', 'res.colGrade', 'res.colRight', 'res.colTotal', 'res.colPct', 'res.colTopics', 'res.colTime', 'res.colExits', 'res.colNote'].map(k => t(k));
-      const lines = [head].concat(list.map(r => [fmt(r.at), r.name, r.cls, r.title, r.grade, r.right, r.total, r.pct, r.topics, r.minutes, r.exits, r.note]));
+      const head = ['res.colDate', 'res.colName', 'res.colClass', 'res.colTest', 'res.colPoints', 'res.colMax', 'res.colGradeOnly', 'res.colRight', 'res.colTotal', 'res.colPct', 'res.colTopics', 'res.colTime', 'res.colExits', 'res.colNote'].map(k => t(k));
+      const lines = [head].concat(list.map(r => [fmt(r.at), r.name, r.cls, r.title, hasPoints(r) ? num(+r.points) : '', hasPoints(r) ? r.maxPoints : '', hasPoints(r) ? '' : r.grade, r.right, r.total, r.pct, r.topics, r.minutes, r.exits, r.note]));
       const blob = new Blob(['﻿' + lines.map(l => l.map(cell).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
       const a = h('a', { href: URL.createObjectURL(blob), download: 'результаты-' + new Date().toISOString().slice(0, 10) + '.csv' });
       document.body.append(a);
@@ -263,10 +271,19 @@ const Results = (function () {
 // Ключ учителя: нужен, чтобы смотреть результаты на сайте. Ученики его не знают.
 const KEY = '__KEY__';
 const SHEET = 'Результаты';
-const HEAD = ['Дата', 'Ученик', 'Класс', 'Тест', 'Верно', 'Всего', 'Процент', 'Оценка', 'По темам', 'Минут', 'Уходов с сайта', 'Примечание', 'id', 'Код теста'];
+const HEAD = ['Дата', 'Ученик', 'Класс', 'Тест', 'Баллы', 'Из', 'Верно', 'Всего', 'Процент', 'Оценка', 'По темам', 'Минут', 'Уходов с сайта', 'Примечание', 'id', 'Код теста'];
+const ID = 15;   // столбец id
+
+// Эту функцию можно запустить кнопкой «Выполнить»: она создаст лист «Результаты» и попросит разрешения Google.
+// doPost и doGet вручную запускать не нужно — их вызывает сайт.
+function setup() {
+  table();
+  Logger.log('Готово: лист «' + SHEET + '» создан. Теперь сделайте развёртывание как веб-приложение.');
+}
 
 // Ученик закончил тест — сайт присылает результат
 function doPost(e) {
+  if (!e || !e.postData) return reply({ ok: false, error: 'Эту функцию вызывает сайт. Для проверки запустите setup.' });
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -274,12 +291,12 @@ function doPost(e) {
     if (!r || !r.id) return reply({ ok: false, error: 'data' });
     const sh = table();
     const n = sh.getLastRow() - 1;
-    const ids = n > 0 ? sh.getRange(2, 13, n, 1).getValues().map(x => String(x[0])) : [];
+    const ids = n > 0 ? sh.getRange(2, ID, n, 1).getValues().map(x => String(x[0])) : [];
     // тот же результат мог прийти второй раз (повторная отправка) — не дублируем
     if (ids.indexOf(String(r.id)) < 0) {
       sh.appendRow([new Date(Number(r.at) || Date.now()), text(r.name, 80), text(r.cls, 20), text(r.title, 100),
-        num(r.right), num(r.total), num(r.pct), num(r.grade), text(r.topics, 300), num(r.minutes), num(r.exits),
-        text(r.note, 100), text(r.id, 40), text(r.test, 40)]);
+        opt(r.points), opt(r.maxPoints), num(r.right), num(r.total), num(r.pct), opt(r.grade), text(r.topics, 300),
+        num(r.minutes), num(r.exits), text(r.note, 100), text(r.id, 40), text(r.test, 40)]);
     }
     return reply({ ok: true });
   } finally {
@@ -289,19 +306,24 @@ function doPost(e) {
 
 // Учитель открыл результаты на сайте — отдаём их, только если ключ верный
 function doGet(e) {
-  if (!e.parameter.key || e.parameter.key !== KEY) return reply({ ok: false, error: 'key' });
+  if (!e || !e.parameter || !e.parameter.key || e.parameter.key !== KEY) return reply({ ok: false, error: 'key' });
   const sh = table();
   const n = sh.getLastRow() - 1;
   const rows = n > 0 ? sh.getRange(2, 1, n, HEAD.length).getValues() : [];
   return reply({ ok: true, sheet: SpreadsheetApp.getActiveSpreadsheet().getUrl(), rows: rows.map(r => ({
     at: r[0] instanceof Date ? r[0].getTime() : Number(r[0]) || 0, name: String(r[1]), cls: String(r[2]), title: String(r[3]),
-    right: r[4], total: r[5], pct: r[6], grade: r[7], topics: String(r[8]), minutes: r[9], exits: r[10],
-    note: String(r[11]), id: String(r[12]), test: String(r[13]) })) });
+    points: r[4], maxPoints: r[5], right: r[6], total: r[7], pct: r[8], grade: r[9], topics: String(r[10]), minutes: r[11],
+    exits: r[12], note: String(r[13]), id: String(r[14]), test: String(r[15]) })) });
 }
 
 function table() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(SHEET);
+  // лист от прошлой версии скрипта (другие столбцы) — откладываем его, чтобы данные не перепутались
+  if (sh && sh.getLastRow() > 0 && sh.getRange(1, 1, 1, HEAD.length).getValues()[0].join('|') !== HEAD.join('|')) {
+    sh.setName(SHEET + ' (старый ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd.MM HH:mm') + ')');
+    sh = null;
+  }
   if (!sh) {
     sh = ss.insertSheet(SHEET);
     sh.appendRow(HEAD);
@@ -317,6 +339,7 @@ function text(v, max) {
   return /^[=+\\-@]/.test(s) ? "'" + s : s;
 }
 function num(v) { return Number(v) || 0; }
+function opt(v) { return v === '' || v === undefined || v === null ? '' : Number(v) || 0; }
 function reply(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 `;
 

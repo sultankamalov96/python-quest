@@ -616,7 +616,9 @@ const App = (function () {
         }))),
       h('section', { class: 'panel' }, h('h2', null, '📝 ' + t('exam.title')),
         h('ul', { class: 'star-list' }, Exam.summary().map(x => h('li', null, h('span', null, x.icon + ' ' + x.title),
-          x.rec ? h('span', null, h('span', { class: 'ex-grade small g' + x.rec.bestGrade }, x.rec.bestGrade), ' ' + t('exam.best', { p: x.rec.best }))
+          x.rec ? (EXAMS[x.id].points
+            ? h('span', null, t('exam.bestPts', { p: (x.rec.bestPoints || 0).toLocaleString('ru-RU'), m: EXAMS[x.id].points }))
+            : h('span', null, h('span', { class: 'ex-grade small g' + x.rec.bestGrade }, x.rec.bestGrade), ' ' + t('exam.best', { p: x.rec.best })))
             : h('span', { class: 'muted' }, t('exam.notyet')))))),
       h('section', { class: 'panel' }, h('h2', null, t('ach.records')),
         recKeys.length ? h('ul', { class: 'star-list' }, recKeys.map(k => h('li', null, h('span', null, t('record.' + k)), h('b', null, s.records[k]))))

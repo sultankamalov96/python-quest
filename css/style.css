@@ -1156,6 +1156,8 @@ pre.code {
   font: 800 52px var(--font); color: #fff; background: var(--muted);
 }
 .ex-grade.small { width: 34px; height: 34px; font-size: 18px; vertical-align: middle; }
+.ex-grade.pts { width: auto; min-width: 96px; padding: 0 18px; border-radius: 48px; font-size: 40px; }
+.ex-grade.pts.small { min-width: 34px; height: 30px; padding: 0 10px; font-size: 16px; border-radius: 15px; }
 .ex-grade.g5 { background: #16a34a; }
 .ex-grade.g4 { background: #2563eb; }
 .ex-grade.g3 { background: #d97706; }

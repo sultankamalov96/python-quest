@@ -61,6 +61,9 @@ const Exam = (function () {
   const fmtTime = st => (st.time ? t('exam.minutes', { m: st.time }) : t('exam.noLimit'));
   const metaText = id => '📋 ' + t('exam.metaQ', { k: settings(id).count, n: EXAMS[id].questions.length }) + ' · ⏱ ' + fmtTime(settings(id));
   const grade = pct => { const g = cfg().grades; return pct >= g[5] ? 5 : pct >= g[4] ? 4 : pct >= g[3] ? 3 : 2; };
+  // Тест с баллами (points в data/exams.js) вместо оценки: доля верных ответов от points, с точностью 0,1
+  const pointsOf = (id, right, total) => Math.round(right / total * EXAMS[id].points * 10) / 10;
+  const num = x => x.toLocaleString('ru-RU');
 
   function store() {
     const s = Progress.state;
@@ -151,8 +154,8 @@ const Exam = (function () {
           h('div', { class: 'ex-card-head' }, h('span', { class: 'ex-icon' }, ex.icon), h('div', null, h('h2', null, ex.title, ex.badge ? h('span', { class: 'ex-badge' }, ex.badge) : null), h('p', { class: 'muted' }, ex.subtitle))),
           meta,
           rec
-            ? h('div', { class: 'ex-best' }, h('span', { class: 'ex-grade small g' + rec.bestGrade }, rec.bestGrade),
-              h('span', null, t('exam.best', { p: rec.best }) + ' · ' + t('exam.attempts', { n: rec.attempts })))
+            ? h('div', { class: 'ex-best' }, ex.points ? null : h('span', { class: 'ex-grade small g' + rec.bestGrade }, rec.bestGrade),
+              h('span', null, (ex.points ? t('exam.bestPts', { p: num(rec.bestPoints || 0), m: ex.points }) : t('exam.best', { p: rec.best })) + ' · ' + t('exam.attempts', { n: rec.attempts })))
             : h('div', { class: 'ex-best muted' }, t('exam.notyet')),
           h('div', { class: 'row wrap' },
             h('a', { class: 'btn primary', href: '#/tests/' + id }, cont ? '▶ ' + t('exam.continue') : '▶ ' + t('exam.start')),
@@ -290,6 +293,7 @@ const Exam = (function () {
       const record = pct > rec.best || rec.attempts === 1;
       rec.best = Math.max(rec.best, pct);
       rec.bestGrade = Math.max(rec.bestGrade, g);
+      if (ex.points) rec.bestPoints = Math.max(rec.bestPoints || 0, pointsOf(id, right, N));
       rec.last = { pct, grade: g, at: Date.now(), exits: a.exits || 0 };
       store()[id] = rec;
       Progress.levelDone('exams', id, g - 2, right * 5);
@@ -330,7 +334,9 @@ const Exam = (function () {
     return {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), at: Date.now(),
       name: a.student ? a.student.name : Progress.state.name || '', cls: a.student ? a.student.cls : '',
-      test: id, title: ex.title, right, total: a.qs.length, pct, grade: g, topics,
+      test: id, title: ex.title,
+      points: ex.points ? pointsOf(id, right, a.qs.length) : '', maxPoints: ex.points || '',
+      right, total: a.qs.length, pct, grade: ex.points ? '' : g, topics,
       minutes: Math.max(1, Math.round((Date.now() - a.start) / 60000)), exits: a.exits || 0, note
     };
   }
@@ -349,9 +355,9 @@ const Exam = (function () {
 
     v.append(
       h('div', { class: 'ex-result' },
-        h('div', { class: 'ex-grade g' + g }, g),
+        ex.points ? h('div', { class: 'ex-grade pts g' + g }, num(pointsOf(id, right, N))) : h('div', { class: 'ex-grade g' + g }, g),
         h('div', null,
-          h('h1', null, gradeText(g)),
+          h('h1', null, ex.points ? t('exam.pointsOf', { p: num(pointsOf(id, right, N)), m: ex.points }) : gradeText(g)),
           h('p', { class: 'ex-score' }, t('exam.score', { r: right, n: N, p: pct })),
           h('p', { class: 'muted' }, ex.icon + ' ' + ex.title + ' · ' + (a.student ? a.student.name + ', ' + a.student.cls : Progress.state.name || '') + ' · ' + new Date().toLocaleDateString('ru-RU') + ' · ' + t('exam.time', { m: mins }) + (a.limit ? ' ' + t('exam.of', { m: a.limit }) : '')),
           a.expired ? h('p', { class: 'ex-exits' }, '⏱ ' + t('exam.timeUp')) : null,
@@ -439,7 +445,7 @@ const Exam = (function () {
       h('div', { class: 'pr-sheet pr-answers' },
         h('h2', null, t('exam.key') + ' · ' + ex.title + ' · ' + t('exam.variant', { n: variant })),
         h('p', { class: 'ex-key' }, qs.map((item, i) => (i + 1) + ' — ' + LET[item.answer]).join(',   ')),
-        h('p', { class: 'muted' }, t('exam.scale', { a: cfg().grades[5], b: cfg().grades[4], c: cfg().grades[3] }))));
+        h('p', { class: 'muted' }, ex.points ? t('exam.pointsScale', { m: ex.points }) : t('exam.scale', { a: cfg().grades[5], b: cfg().grades[4], c: cfg().grades[3] }))));
   }
 
   // для страницы достижений
