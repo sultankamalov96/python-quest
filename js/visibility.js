@@ -88,19 +88,26 @@ const Vis = (function () {
   }
 
   // ---------------------------------------------------------------- ссылка для учеников (без Google Таблицы)
-  function sign(h, at) {
+  function sign(h, at, r) {
     let x = 5381;
-    for (const ch of 'vis:' + h + ':' + at + ':' + CONFIG.teacherPin) x = ((x * 33) ^ ch.charCodeAt(0)) >>> 0;
+    for (const ch of 'vis:' + h + ':' + at + (r ? ':' + r : '') + ':' + CONFIG.teacherPin) x = ((x * 33) ^ ch.charCodeAt(0)) >>> 0;
     return x.toString(36);
   }
+  // В ссылку попадает и адрес Google Таблицы (если он задан в режиме учителя, а не в config.js):
+  // открыв её один раз, ученик дальше получает настройки сам и отправляет результаты тестов.
   function link() {
-    const s = state(), hs = s.hidden.join(',');
-    return location.href.split('#')[0] + '#/v?h=' + encodeURIComponent(hs) + '&at=' + s.at + '&k=' + sign(hs, s.at);
+    const s = state(), hs = s.hidden.join(','), r = Results.linkUrl();
+    return location.href.split('#')[0] + '#/v?h=' + encodeURIComponent(hs) + '&at=' + s.at +
+      (r ? '&r=' + encodeURIComponent(r) : '') + '&k=' + sign(hs, s.at, r);
   }
   function applyLink() {
-    const q = App.query, hs = q.get('h') || '', at = +q.get('at');
-    if (q.get('k') !== sign(hs, at)) FX.toast(t('exam.linkBroken'), '⚠️');
-    else if (accept({ hidden: hs ? hs.split(',') : [], at }) || state().at === at) FX.toast(t('vis.received'), '👁');
+    const q = App.query, hs = q.get('h') || '', at = +q.get('at'), r = q.get('r');
+    if (q.get('k') !== sign(hs, at, r)) FX.toast(t('exam.linkBroken'), '⚠️');
+    else {
+      if (r) Results.setUrl(r);
+      if (accept({ hidden: hs ? hs.split(',') : [], at }) || state().at === at) FX.toast(t('vis.received'), '👁');
+      pull();
+    }
     App.go('#/');
   }
 
@@ -116,13 +123,21 @@ const Vis = (function () {
     const msg = h('p', { class: 'small', 'aria-live': 'polite' });
     const linkBox = h('div', { class: 'ex-link' });
     const boxes = [];
+    const saveBtn = h('button', { class: 'btn primary', onclick: () => doSave() }, '💾 ' + t('vis.save'));
+    // галочки и «Показать все / Скрыть все» действуют только после «Сохранить»
+    function dirty() {
+      saveBtn.classList.add('vis-dirty');
+      msg.className = 'warn-text small';
+      msg.textContent = '⚠ ' + t('vis.unsaved');
+      linkBox.innerHTML = '';
+    }
     const groupNode = ([title, items]) => {
       const own = items.map(([key, label]) => {
-        const cb = h('input', { type: 'checkbox', checked: hidden.has(key) ? null : true });
+        const cb = h('input', { type: 'checkbox', checked: hidden.has(key) ? null : true, onchange: dirty });
         boxes.push([key, cb]);
         return h('label', { class: 'vis-item' }, cb, h('span', null, label));
       });
-      const all = on => () => own.forEach(l => { l.querySelector('input').checked = on; });
+      const all = on => () => { own.forEach(l => { l.querySelector('input').checked = on; }); dirty(); };
       return h('fieldset', { class: 'vis-group' },
         h('legend', null, t(title)),
         h('div', { class: 'row wrap vis-quick' },
@@ -131,6 +146,7 @@ const Vis = (function () {
         h('div', { class: 'vis-items' }, own));
     };
     const doSave = async () => {
+      saveBtn.classList.remove('vis-dirty');
       msg.className = 'muted small';
       msg.textContent = '⏳ ' + t('vis.saving');
       linkBox.innerHTML = '';
@@ -154,15 +170,21 @@ const Vis = (function () {
       } }, '📋 ' + t('exam.copy')),
       location.protocol === 'file:' ? h('p', { class: 'bad-text small' }, '⚠ ' + t('exam.linkLocal')) : '');
     };
+    const sheetOn = !!(Results.url() && Results.key());
     return h('section', { class: 'panel vis-panel' }, h('h2', null, '👁 ' + t('vis.title')),
       h('p', { class: 'muted small' }, t('vis.lead')),
+      h('p', { class: 'vis-status small ' + (sheetOn ? 'ok' : 'warn') }, sheetOn ? '✔ ' + t('vis.howSheet') : '⚠ ' + t('vis.howLink')),
       h('div', { class: 'vis-groups' }, groups.map(groupNode)),
       h('div', { class: 'row wrap' },
-        h('button', { class: 'btn primary', onclick: doSave }, '💾 ' + t('vis.save')),
-        h('button', { class: 'btn', onclick: showLink }, '🔗 ' + t('vis.link'))),
+        saveBtn,
+        h('button', { class: 'btn', onclick: showLink }, '🔗 ' + t('vis.link')),
+        h('button', { class: 'btn ghost', onclick: () => { App.setTeacher(false); FX.toast(t('vis.asStudentToast'), '👀'); App.go('#/'); } }, '👀 ' + t('vis.asStudent'))),
       msg, linkBox,
-      h('p', { class: 'muted small' }, Results.url() && Results.key() ? t('vis.howSheet') : t('vis.howLink')));
+      sheetOn && !configured() ? h('p', { class: 'muted small' }, t('vis.studentsNeedUrl')) : null);
   }
+
+  // адрес таблицы записан в config.js — тогда он есть у всех учеников без ссылок
+  const configured = () => !!(CONFIG.results && CONFIG.results.url);
 
   // Отметка «скрыто» для учителя на карточках
   const mark = key => (App.teacher && isHidden(key) ? h('span', { class: 'vis-tag' }, '🙈 ' + t('vis.hiddenTag')) : null);

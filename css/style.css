@@ -1314,3 +1314,9 @@ pre.code {
 .nav a.vis-off { opacity: .45; }
 .vis-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--bg2); color: var(--muted); font-size: 12px; font-weight: 700; vertical-align: middle; white-space: nowrap; }
 .nav a[hidden] { display: none; }
+
+.vis-status { padding: 8px 12px; border-radius: 10px; margin: 8px 0 0; font-weight: 600; }
+.vis-status.ok { background: var(--ok-bg); color: var(--ok); }
+.vis-status.warn { background: var(--warn-bg); }
+.warn-text { background: var(--warn-bg); color: var(--fg); padding: 6px 10px; border-radius: 8px; font-weight: 700; margin: 0; }
+.btn.vis-dirty { box-shadow: 0 0 0 3px var(--accent); }
