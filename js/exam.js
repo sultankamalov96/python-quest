@@ -230,7 +230,7 @@ const Exam = (function () {
       card.append(...[
         h('div', { class: 'ex-qtext', html: rich(q.q) }),
         qPic(q),
-        q.code ? h('div', { html: Highlight.code(q.code) }) : null,
+        q.code ? h('div', { html: Highlight.code(q.code, { lang: q.lang }) }) : null,
         q.inputs && q.inputs.length ? h('p', { class: 'muted' }, '⌨ ' + t('exam.inputs') + ' ', h('code', null, q.inputs.join(', '))) : null,
         h('div', { class: 'ex-options' + (q.pics ? ' pics' : ''), role: 'radiogroup' }, item.order.map((oi, k) => {
           const text = q.options[oi];
@@ -381,7 +381,7 @@ const Exam = (function () {
         reviewBox.append(h('article', { class: 'ex-item ' + (ok ? 'ok' : 'bad') },
           h('div', { class: 'ex-item-head' }, h('b', null, (ok ? '✔ ' : '✘ ') + (i + 1) + '.'), h('span', { html: rich(q.q) })),
           qPic(q),
-          q.code ? h('div', { html: Highlight.code(q.code) }) : null,
+          q.code ? h('div', { html: Highlight.code(q.code, { lang: q.lang }) }) : null,
           h('ul', { class: 'ex-ans' }, item.order.map((oi, k) => {
             const cls = k === item.answer ? 'right' : k === mine ? 'wrong' : '';
             return h('li', { class: cls }, h('b', null, LET[k] + ') '), optNode(q, q.options[oi], true),
@@ -415,7 +415,7 @@ const Exam = (function () {
       h('div', { class: 'ex-review' }, ex.questions.map((q, i) => h('article', { class: 'ex-item' },
         h('div', { class: 'ex-item-head' }, h('b', null, (i + 1) + '.'), h('span', { html: rich(q.q) })),
         qPic(q),
-        q.code ? h('div', { html: Highlight.code(q.code) }) : null,
+        q.code ? h('div', { html: Highlight.code(q.code, { lang: q.lang }) }) : null,
         h('ul', { class: 'ex-ans' + (q.pics ? ' pics' : '') }, q.options.map((o, k) => h('li', { class: k === 0 ? 'right' : '' }, optNode(q, o, true), k === 0 ? h('span', { class: 'ex-tag' }, ' ✔') : null))),
         h('p', { class: 'ex-explain', html: '💡 ' + rich(q.explain) })))));
   }
@@ -439,7 +439,7 @@ const Exam = (function () {
           return h('article', { class: 'pr-task' },
             h('p', null, h('b', null, (i + 1) + '. '), h('span', { html: rich(q.q) })),
             qPic(q),
-            q.code ? h('div', { html: Highlight.code(q.code) }) : null,
+            q.code ? h('div', { html: Highlight.code(q.code, { lang: q.lang }) }) : null,
             q.inputs && q.inputs.length ? h('p', null, t('exam.inputs') + ' ', h('code', null, q.inputs.join(', '))) : null,
             h('div', { class: 'pr-opts' + (q.pics ? ' pics' : '') }, item.order.map((oi, k) => h('span', null, '☐ ' + LET[k] + ') ', optNode(q, q.options[oi], true)))));
         })),

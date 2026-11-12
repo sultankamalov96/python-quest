@@ -1,4 +1,4 @@
-/* Простая подсветка синтаксиса Python.
+/* Простая подсветка синтаксиса Python (и Dart — для теста по Dart: Highlight.code(text, {lang: 'dart'})).
    Highlight.line(text)  → HTML одной строки
    Highlight.code(text, {numbers, active}) → HTML блока с номерами строк */
 const Highlight = (function () {
@@ -14,9 +14,20 @@ const Highlight = (function () {
 
   const RE = /(#.*$)|([fF]?"(?:[^"\\]|\\.)*"?|[fF]?'(?:[^'\\]|\\.)*'?)|(\b\d+\.?\d*(?:[eE][+-]?\d+)?\b)|([\p{L}_][\p{L}\p{N}_]*)|(___\d+___)|(==|!=|<=|>=|\*\*|\/\/|[+\-*/%<>=])/gu;
 
+  // Dart: комментарий начинается с //, у языка свои ключевые слова и типы
+  const DART = {
+    KW: new Set(['if', 'else', 'while', 'for', 'in', 'do', 'break', 'continue', 'switch', 'case', 'default', 'return',
+      'var', 'final', 'const', 'void', 'import', 'class', 'new', 'is']),
+    CONST: new Set(['true', 'false', 'null']),
+    BUILTIN: new Set(['print', 'int', 'double', 'String', 'bool', 'num', 'List', 'dynamic', 'main']),
+    RE: /(\/\/.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?)|(\b\d+\.?\d*\b)|([\p{L}_][\p{L}\p{N}_]*)|(___\d+___)|(==|!=|<=|>=|&&|\|\||\+\+|--|~\/|[+\-*/%<>=!?:])/gu
+  };
+  const PY = { KW, CONST, BUILTIN, RE };
+
   const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  function line(text) {
+  function line(text, lang) {
+    const L = lang === 'dart' ? DART : PY, RE = L.RE, KW = L.KW, CONST = L.CONST, BUILTIN = L.BUILTIN;
     let out = '', last = 0;
     RE.lastIndex = 0;
     let m;
@@ -42,7 +53,7 @@ const Highlight = (function () {
     return '<pre class="code' + (opts.numbers === false ? '' : ' numbered') + '">' + lines.map((l, i) =>
       '<span class="code-line' + (opts.active === i + 1 ? ' active' : '') + '" data-line="' + (i + 1) + '">' +
       (opts.numbers === false ? '' : '<span class="ln">' + (i + 1) + '</span>') +
-      '<span class="lc">' + (line(l) || ' ') + '</span></span>'
+      '<span class="lc">' + (line(l, opts.lang) || ' ') + '</span></span>'
     ).join('') + '</pre>';
   }
 
