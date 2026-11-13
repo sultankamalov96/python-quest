@@ -395,15 +395,34 @@ const EXAMS = {
   }
 };
 
-// Итоговый тест по Python: по 25 вопросов из тестов «Основы Python», «Условные операторы» и «Циклы».
+// Входной и итоговый тесты по Python (для сравнения «до» и «после», например в педагогическом эксперименте).
+// Итоговый: по 25 вопросов из тестов «Основы Python», «Условные операторы» и «Циклы».
 // Вопросы берутся через равный шаг по всему тесту, чтобы попали все подтемы. topic — из какого теста вопрос:
 // в попытку вопросы берутся из всех трёх тестов поровну. results: true — результат уходит учителю (js/results.js),
 // points: 25 — вместо оценки баллы (30 из 30 верных = 25 баллов).
 (function () {
   const PART = ['basics', 'conditions', 'loops'];
+  const picked = (len, n) => Array.from({ length: n }, (_, i) => Math.floor(i * len / n));
   const take = (id, n) => {
     const qs = EXAMS[id].questions;
-    return Array.from({ length: n }, (_, i) => Object.assign({}, qs[Math.floor(i * qs.length / n)], { topic: id }));
+    return picked(qs.length, n).map(i => Object.assign({}, qs[i], { topic: id }));
+  };
+  // входной тест — все остальные вопросы тех же трёх тестов: параллельная форма итогового, вопросы не повторяются
+  const rest = (id, n) => {
+    const qs = EXAMS[id].questions, used = new Set(picked(qs.length, n));
+    return qs.filter((_, i) => !used.has(i)).map(q => Object.assign({}, q, { topic: id }));
+  };
+  const entry = {
+    title: 'Python: входной тест',
+    subtitle: 'Проверка в начале изучения темы: основы Python, условия и циклы. Вопросы другие, чем в итоговом, формат тот же. Результат получает учитель.',
+    icon: '🧭',
+    badge: 'входной',
+    expected: 105,
+    count: 30,
+    time: 30,
+    results: true,
+    points: 25,
+    questions: [].concat(...PART.map(id => rest(id, 25)))
   };
   const final = {
     title: 'Python: итоговый тест',
@@ -417,8 +436,8 @@ const EXAMS = {
     points: 25,       // вместо оценки — баллы: все верные ответы = 25 баллов
     questions: [].concat(...PART.map(id => take(id, 25)))
   };
-  // в списке тестов итоговый идёт сразу после трёх тестов по Python
-  const rest = {};
-  Object.keys(EXAMS).filter(k => PART.indexOf(k) < 0).forEach(k => { rest[k] = EXAMS[k]; delete EXAMS[k]; });
-  Object.assign(EXAMS, { final }, rest);
+  // в списке тестов входной и итоговый идут сразу после трёх тестов по Python
+  const others = {};
+  Object.keys(EXAMS).filter(k => PART.indexOf(k) < 0).forEach(k => { others[k] = EXAMS[k]; delete EXAMS[k]; });
+  Object.assign(EXAMS, { entry, final }, others);
 })();
