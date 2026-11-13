@@ -26,26 +26,27 @@
 <div id="total" class="summary"></div>
 <div id="out"></div>
 
-<script src="data/config.js?v=20261113"></script>
-<script src="js/i18n.js?v=20261113"></script>
-<script src="data/tasks.js?v=20261113"></script>
-<script src="data/levels.js?v=20261113"></script>
-<script src="data/quiz.js?v=20261113"></script>
-<script src="data/exams.js?v=20261113"></script>
-<script src="data/exams_dart.js?v=20261113"></script>
-<script src="js/engine.js?v=20261113"></script>
-<script src="js/pictures.js?v=20261113"></script>
-<script src="js/flowchart.js?v=20261113"></script>
-<script src="js/games/robot.js?v=20261113"></script>
-<script src="js/games/truefalse.js?v=20261113"></script>
-<script src="js/games/count.js?v=20261113"></script>
-<script src="js/games/turtle.js?v=20261113"></script>
-<script src="js/games/tracer.js?v=20261113"></script>
-<script src="js/games/memory.js?v=20261113"></script>
-<script src="js/games/quiz.js?v=20261113"></script>
-<script src="js/games/duel.js?v=20261113"></script>
-<script src="js/games/minesweeper.js?v=20261113"></script>
-<script src="js/games/bazaar.js?v=20261113"></script>
+<script src="data/config.js?v=20261113b"></script>
+<script src="js/i18n.js?v=20261113b"></script>
+<script src="data/tasks.js?v=20261113b"></script>
+<script src="data/levels.js?v=20261113b"></script>
+<script src="data/quiz.js?v=20261113b"></script>
+<script src="data/exams.js?v=20261113b"></script>
+<script src="data/exams_dart.js?v=20261113b"></script>
+<script src="js/engine.js?v=20261113b"></script>
+<script src="js/pictures.js?v=20261113b"></script>
+<script src="js/flowchart.js?v=20261113b"></script>
+<script src="js/games/robot.js?v=20261113b"></script>
+<script src="js/games/mouse.js?v=20261113b"></script>
+<script src="js/games/truefalse.js?v=20261113b"></script>
+<script src="js/games/count.js?v=20261113b"></script>
+<script src="js/games/turtle.js?v=20261113b"></script>
+<script src="js/games/tracer.js?v=20261113b"></script>
+<script src="js/games/memory.js?v=20261113b"></script>
+<script src="js/games/quiz.js?v=20261113b"></script>
+<script src="js/games/duel.js?v=20261113b"></script>
+<script src="js/games/minesweeper.js?v=20261113b"></script>
+<script src="js/games/bazaar.js?v=20261113b"></script>
 <script>
 // ------------------------------------------------------------------ тесты интерпретатора
 // out — ожидаемый вывод (точно), err — подстрока ожидаемой ошибки
@@ -172,6 +173,15 @@ const ENGINE_TESTS = [
   { name: 'методы списков', code: 'a = [3, 1, 2]\na.insert(0, 5)\na.remove(1)\na.sort()\nprint(a)\na.reverse()\nprint(a, a.index(3))', out: '[2, 3, 5]\n[5, 3, 2] 1\n' },
   { name: 'sorted и reverse=True', code: 'a = [3, 1, 2]\nprint(sorted(a), a)\na.sort(reverse=True)\nprint(a)', out: '[1, 2, 3] [3, 1, 2]\n[3, 2, 1]\n' },
   { name: 'join, split, ord, chr', code: 'w = "a b c".split()\nprint("-".join(w))\nprint(ord("A"), chr(98))', out: 'a-b-c\n65 b\n' },
+  // --- генератор списка и несколько переменных в for (нужны волновому алгоритму микромыши)
+  { name: 'генератор списка', code: 'print([x * x for x in range(5)])', out: '[0, 1, 4, 9, 16]\n' },
+  { name: 'генератор с условием', code: 'print([x for x in range(10) if x % 3 == 0])', out: '[0, 3, 6, 9]\n' },
+  { name: 'список списков — строки разные', code: 'g = [[0] * 3 for i in range(2)]\ng[0][1] = 5\nprint(g)', out: '[[0, 5, 0], [0, 0, 0]]\n' },
+  { name: 'переменная генератора не выходит наружу', code: 'x = 7\na = [x for x in range(3)]\nprint(x, a)', out: '7 [0, 1, 2]\n' },
+  { name: 'for x, y in список пар', code: 'for x, y in [(1, 2), (3, 4)]:\n    print(x + y)', out: '3\n7\n' },
+  { name: 'генератор с парами', code: 'print([a * b for a, b in [(2, 3), (4, 5)]])', out: '[6, 20]\n' },
+  { name: 'for x, y: не хватает значений', code: 'for x, y in [(1, 2, 3)]:\n    print(x)', err: 'количество переменных' },
+  { name: 'огромный генератор упирается в лимит', code: 'a = [i for i in range(10 ** 6)]', err: 'шагов' },
 ];
 
 // --- тесты API: подключаемые функции, пошаговый режим, evalExpr
@@ -274,7 +284,7 @@ function runEngineTests() {
 }
 
 // Проверки задач и уровней: каждая функция получает section(title) и добавляет результаты
-const DATA_CHECKS = [checkTasks, checkRobot, checkTrueFalse, checkCount, checkTurtle, checkTracer, checkMemory, checkQuiz, checkDuel, checkMines, checkBazaar, checkExams];
+const DATA_CHECKS = [checkTasks, checkRobot, checkMouse, checkTrueFalse, checkCount, checkTurtle, checkTracer, checkMemory, checkQuiz, checkDuel, checkMines, checkBazaar, checkExams];
 
 function checkTrueFalse(section) {
   const s = section('Истина или Ложь: генератор условий');
@@ -576,6 +586,46 @@ function checkRobot(section) {
     }
     s.items.push({ name: (i + 1) + '. ' + lv.title, ok: !errs.length, code: lv.solution, detail: errs.concat(info).join('\n') });
   });
+}
+
+// Микромышь: каждый лабиринт проходим, эталон получает три звезды
+// (на случайном уровне звезда за кратчайший второй забег бывает не на каждой карте — нужно хотя бы на половине)
+function checkMouse(section) {
+  const L = LEVELS.mouse || [];
+  const s = section('Микромышь: уровни (' + L.length + ', нужно 10)');
+  s.items.push({ name: 'количество уровней = 10', ok: L.length === 10 });
+  L.forEach((lv, i) => {
+    const errs = [], info = [];
+    if (lv.manual) {
+      const m = MouseSim.mazeFor(lv), p = MouseSim.shortestPath(m);
+      if (!p) errs.push('до центра не добраться');
+      else info.push('кратчайший путь: ' + (p.length - 1) + ' шагов');
+    } else if (!lv.random) {
+      const r = MouseSim.run(lv, lv.solution);
+      info.push('забеги: ' + r.run1.moves + ' и ' + (r.run2 ? r.run2.moves : '—') + ', кратчайший ' + r.shortest + ', строк ' + r.lines);
+      if (r.stars !== 3) errs.push('эталон получает ' + r.stars + ' звезды: ' + (r.run1.error || JSON.stringify(r.met)));
+      if (lv.starter) {
+        const st = MouseSim.run(lv, lv.starter);
+        if (!st.run1.ok) errs.push('стартовый код с ошибкой: ' + st.run1.error);
+      }
+    } else {
+      let three = 0, two = 0;
+      for (let seed = 1; seed <= 20; seed++) {
+        const r = MouseSim.run(lv, lv.solution, seed);
+        if (r.stars >= 2) two++; else if (errs.length < 2) errs.push('зерно ' + seed + ': ' + (r.run1.error || 'меньше двух звёзд'));
+        if (r.stars === 3) three++;
+      }
+      info.push('3 звезды на ' + three + ' из 20 карт, 2+ — на ' + two);
+      if (three < 10) errs.push('три звезды меньше чем на половине карт');
+    }
+    s.items.push({ name: (i + 1) + '. ' + lv.title, ok: !errs.length, code: lv.solution || '', detail: errs.concat(info).join('\n') });
+  });
+  // правило правой руки на «Острове» ходит по кругу — ради этого уровень и сделан
+  const island = L.findIndex(x => x.title === 'Остров');
+  if (island >= 0) {
+    const r = MouseSim.run(L[island], L[2].solution);
+    s.items.push({ name: '«Остров»: правая рука не доходит до центра', ok: !r.run1.win });
+  }
 }
 
 function checkTasks(section) {

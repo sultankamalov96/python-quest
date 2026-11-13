@@ -176,6 +176,7 @@ const Progress = (function () {
     { id: 'bughunter', icon: '🐞', test: () => (s.stats.bugs || 0) >= 10 },
     { id: 'universal', icon: '🧩', test: () => new Set(solved().map(x => x.type)).size >= 7 },
     { id: 'robot', icon: '🤖', test: () => allLevels('robot') },
+    { id: 'mouse', icon: '🐭', test: () => allLevels('mouse') },
     { id: 'artist', icon: '🎨', test: () => allLevels('turtle') },
     { id: 'lightning', icon: '⚡', test: () => (s.records.truefalse || 0) >= 1000 },
     { id: 'counter', icon: '🧮', test: () => (s.records.count || 0) >= 10 },

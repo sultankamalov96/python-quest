@@ -62,8 +62,8 @@ const Puzzles = {
 
 const Games = {
   list: {},
-  ORDER: ['robot', 'turtle', 'truefalse', 'count', 'tracer', 'memory', 'quiz', 'duel', 'minesweeper', 'bazaar'],
-  ICONS: { robot: '🤖', turtle: '🐢', truefalse: '⚖️', count: '🔢', tracer: '💻', memory: '🃏', quiz: '💰', duel: '⚔️', minesweeper: '💣', bazaar: '🛒' },
+  ORDER: ['robot', 'mouse', 'turtle', 'truefalse', 'count', 'tracer', 'memory', 'quiz', 'duel', 'minesweeper', 'bazaar'],
+  ICONS: { robot: '🤖', mouse: '🐭', turtle: '🐢', truefalse: '⚖️', count: '🔢', tracer: '💻', memory: '🃏', quiz: '💰', duel: '⚔️', minesweeper: '💣', bazaar: '🛒' },
   register(id, def) { this.list[id] = def; },
   get(id) { return this.list[id]; }
 };
@@ -487,7 +487,7 @@ const App = (function () {
     const g = Progress.state.games[id] || { levels: {} };
     view().append(...[
       gameTop(id, null, null),
-      def.sandbox ? h('a', { class: 'btn sandbox-btn', href: '#/game/' + id + '/0' }, t('app.3')) : null,
+      def.sandbox ? h('a', { class: 'btn sandbox-btn', href: '#/game/' + id + '/0' }, def.sandboxLabel ? def.sandboxLabel() : t('app.3')) : null,
       h('div', { class: 'level-grid' }, levels.map((L, i) => {
         const n = i + 1;
         const open = levelUnlocked(id, n);

@@ -9,6 +9,10 @@ const ROBOT_WHILE = ROBOT_IF.concat(['while not at_finish():', 'while not wall_a
 // новые команды: шаги с числом, краска, ключи и двери, стены сбоку
 const ROBOT_NEW = ROBOT_WHILE.concat(['forward(3)', 'paint()', 'open()', 'if need_paint():', 'if key_here():', 'if door_ahead():']);
 const ROBOT_SIDES = ROBOT_NEW.concat(['if not wall_right():', 'if not wall_left():', 'elif']);
+// Микромышь: команды для подсказок под редактором
+const MOUSE_BASE = ['forward()', 'left()', 'right()', 'back()', 'while not at_goal():', 'if wall_front():', 'if not wall_right():', 'elif', 'else:'];
+const MOUSE_VISITS = MOUSE_BASE.concat(['visits_left()', 'visits_front()', 'visits_right()', 'pass']);
+const MOUSE_FLOOD = MOUSE_BASE.concat(['size()', 'x()', 'y()', 'facing()', 'is_goal(x, y)', 'wall(x, y, d)', 'turn_to(d)', 'show(dist)', 'for d in range(4):', 'def flood():']);
 
 const LEVELS = {
   /* ------------------------------------------------------------------ Магазин на базаре
@@ -402,6 +406,62 @@ const LEVELS = {
       title: '🎲 Замок', maxLines: 8, allowed: ROBOT_SIDES, random: 'doors',
       hint: 'Случайный коридор с дверями. Перед каждой дверью где-то лежит ключ. Собирай монеты, ключи и открывай все двери.',
       solution: 'while not at_finish():\n    if coin_here():\n        take()\n    if key_here():\n        take()\n    if door_ahead():\n        open()\n    forward()'
+    }
+  ],
+  /* ------------------------------------------------------------------ Микромышь
+     size — лабиринт size×size, seed — зерно (лабиринт уровня всегда один и тот же), loops — сколько стен убрать (кольца),
+     random: true — новый лабиринт при каждом запуске, fog: false — лабиринт виден сразу, manual: true — мышь ведут стрелками.
+     goals — три звезды: goal (дойти), lines (не больше maxLines строк), explore (первый забег не длиннее explore шагов
+     или exploreK × кратчайший путь), shortest (второй забег — кратчайший), shortest1 (первый забег — кратчайший). */
+  mouse: [
+    {
+      title: '🕹 Сам себе мышь', size: 5, seed: 1, manual: true, goals: ['goal', 'explore', 'shortest'], exploreK: 3,
+      hint: 'Веди мышь стрелками: ⬆ шаг, ⬅ ➡ повороты, ⬇ разворот. Лабиринт скрыт — мышь видит только стены рядом. Найди центр 🧀, а во втором забеге пройди к нему самым коротким путём.'
+    },
+    {
+      title: '🕹 Лабиринт с кольцами', size: 6, seed: 16, loops: 3, manual: true, goals: ['goal', 'explore', 'shortest'], exploreK: 3,
+      hint: 'Здесь к центру ведут несколько дорог. В первом забеге разведай лабиринт, во втором выбери самую короткую дорогу.'
+    },
+    {
+      title: 'Правая рука', size: 5, seed: 4, goals: ['goal', 'lines', 'shortest'], maxLines: 8, allowed: MOUSE_BASE,
+      hint: 'Правило правой руки: если справа нет стены — поверни направо и шагни; иначе, если впереди свободно, — шагни; иначе поверни налево. `wall_right()`, `wall_front()` — датчики стен.',
+      solution: 'while not at_goal():\n    if not wall_right():\n        right()\n        forward()\n    elif not wall_front():\n        forward()\n    else:\n        left()'
+    },
+    {
+      title: 'Тупики', size: 6, seed: 1, goals: ['goal', 'lines', 'explore'], maxLines: 8, explore: 45, allowed: MOUSE_BASE,
+      hint: 'Правая рука проходит любой лабиринт без колец, но заходит во все тупики справа. Посмотри, насколько её путь длиннее кратчайшего (он появится пунктиром).',
+      solution: 'while not at_goal():\n    if not wall_right():\n        right()\n        forward()\n    elif not wall_front():\n        forward()\n    else:\n        left()'
+    },
+    {
+      title: 'Остров', size: 6, seed: 4, loops: 4, goals: ['goal', 'lines', 'explore'], maxLines: 13, explore: 43, allowed: MOUSE_VISITS,
+      hint: 'Здесь есть кольца, и правая рука ходит по кругу! Новое правило: иди туда, где мышь была реже всего. `visits_left()`, `visits_front()`, `visits_right()` — сколько раз мышь была в соседней клетке (−1, если там стена). Если везде стены — `back()`.',
+      solution: 'while not at_goal():\n    a = visits_left()\n    b = visits_front()\n    c = visits_right()\n    if a < 0 and b < 0 and c < 0:\n        back()\n    elif b >= 0 and (a < 0 or b <= a) and (c < 0 or b <= c):\n        pass\n    elif a >= 0 and (c < 0 or a <= c):\n        left()\n    else:\n        right()\n    forward()'
+    },
+    {
+      title: 'Много колец', size: 7, seed: 11, loops: 6, goals: ['goal', 'lines', 'explore'], maxLines: 13, explore: 75, allowed: MOUSE_VISITS,
+      hint: 'Лабиринт больше, колец больше. Правило «туда, где был реже» всё равно выведет мышь к центру.',
+      solution: 'while not at_goal():\n    a = visits_left()\n    b = visits_front()\n    c = visits_right()\n    if a < 0 and b < 0 and c < 0:\n        back()\n    elif b >= 0 and (a < 0 or b <= a) and (c < 0 or b <= c):\n        pass\n    elif a >= 0 and (c < 0 or a <= c):\n        left()\n    else:\n        right()\n    forward()'
+    },
+    {
+      title: 'Волна: лабиринт виден', size: 7, seed: 1, loops: 6, fog: false, goals: ['goal', 'shortest1', 'lines'], maxLines: 32, allowed: MOUSE_FLOOD,
+      hint: 'Лабиринт виден целиком. Пустим «волну» из центра: в центре 0, у соседей 1, дальше 2... Тогда из любой клетки идём туда, где число на 1 меньше, — это и есть кратчайший путь! Допиши две части с TODO. `wall(x, y, d)` — стена у клетки (x, y) со стороны d (0 — север, 1 — восток, 2 — юг, 3 — запад). `show(dist)` показывает числа на поле.',
+      starter: 'N = size()\nDX = [0, 1, 0, -1]   # куда сдвигается x: север, восток, юг, запад\nDY = [-1, 0, 1, 0]   # куда сдвигается y\n\n# Волна: в центре 0, у соседей 1, у их соседей 2... Стены волна не проходит.\ndef flood():\n    dist = [[-1] * N for i in range(N)]\n    q = []\n    for y in range(N):\n        for x in range(N):\n            if is_goal(x, y):\n                dist[y][x] = 0\n                q.append((x, y))\n    while q:\n        x, y = q.pop(0)\n        for d in range(4):\n            # TODO: если стены wall(x, y, d) нет и соседняя клетка ещё без числа,\n            # запиши ей dist[y][x] + 1 и добавь её в очередь q\n            pass\n    return dist\n\nwhile not at_goal():\n    dist = flood()\n    show(dist)\n    # TODO: найди сторону d без стены, где число на 1 меньше, чем здесь,\n    # повернись туда turn_to(d) и сделай шаг forward()\n    break\n',
+      solution: 'N = size()\nDX = [0, 1, 0, -1]\nDY = [-1, 0, 1, 0]\n\ndef flood():\n    dist = [[-1] * N for i in range(N)]\n    q = []\n    for y in range(N):\n        for x in range(N):\n            if is_goal(x, y):\n                dist[y][x] = 0\n                q.append((x, y))\n    while q:\n        x, y = q.pop(0)\n        for d in range(4):\n            if not wall(x, y, d):\n                nx = x + DX[d]\n                ny = y + DY[d]\n                if dist[ny][nx] < 0:\n                    dist[ny][nx] = dist[y][x] + 1\n                    q.append((nx, ny))\n    return dist\n\nwhile not at_goal():\n    dist = flood()\n    show(dist)\n    here = dist[y()][x()]\n    for d in range(4):\n        if not wall(x(), y(), d) and dist[y() + DY[d]][x() + DX[d]] == here - 1:\n            turn_to(d)\n            forward()\n            break'
+    },
+    {
+      title: 'Волна в тумане', size: 8, seed: 1, loops: 4, goals: ['goal', 'explore', 'shortest'], explore: 48, allowed: MOUSE_FLOOD,
+      hint: 'Теперь лабиринт скрыт. Хитрость настоящих микромышей: стены, которых мышь ещё не видела, считаем проходами, а волну пересчитываем после каждого шага. `wall()` как раз так и работает. Возьми программу из прошлого уровня — во втором забеге мышь пойдёт кратчайшим путём!',
+      solution: 'N = size()\nDX = [0, 1, 0, -1]\nDY = [-1, 0, 1, 0]\n\ndef flood():\n    dist = [[-1] * N for i in range(N)]\n    q = []\n    for y in range(N):\n        for x in range(N):\n            if is_goal(x, y):\n                dist[y][x] = 0\n                q.append((x, y))\n    while q:\n        x, y = q.pop(0)\n        for d in range(4):\n            if not wall(x, y, d):\n                nx = x + DX[d]\n                ny = y + DY[d]\n                if dist[ny][nx] < 0:\n                    dist[ny][nx] = dist[y][x] + 1\n                    q.append((nx, ny))\n    return dist\n\nwhile not at_goal():\n    dist = flood()\n    show(dist)\n    here = dist[y()][x()]\n    for d in range(4):\n        if not wall(x(), y(), d) and dist[y() + DY[d]][x() + DX[d]] == here - 1:\n            turn_to(d)\n            forward()\n            break'
+    },
+    {
+      title: 'Настоящая микромышь', size: 8, seed: 1, loops: 10, goals: ['goal', 'explore', 'shortest'], explore: 38, allowed: MOUSE_FLOOD,
+      hint: 'Как на соревнованиях: 8×8, много колец. Первый забег — разведка, второй — на скорость кратчайшим путём.',
+      solution: 'N = size()\nDX = [0, 1, 0, -1]\nDY = [-1, 0, 1, 0]\n\ndef flood():\n    dist = [[-1] * N for i in range(N)]\n    q = []\n    for y in range(N):\n        for x in range(N):\n            if is_goal(x, y):\n                dist[y][x] = 0\n                q.append((x, y))\n    while q:\n        x, y = q.pop(0)\n        for d in range(4):\n            if not wall(x, y, d):\n                nx = x + DX[d]\n                ny = y + DY[d]\n                if dist[ny][nx] < 0:\n                    dist[ny][nx] = dist[y][x] + 1\n                    q.append((nx, ny))\n    return dist\n\nwhile not at_goal():\n    dist = flood()\n    show(dist)\n    here = dist[y()][x()]\n    for d in range(4):\n        if not wall(x(), y(), d) and dist[y() + DY[d]][x() + DX[d]] == here - 1:\n            turn_to(d)\n            forward()\n            break'
+    },
+    {
+      title: '🎲 Соревнование', size: 8, loops: 3, random: true, goals: ['goal', 'lines', 'shortest'], maxLines: 40, allowed: MOUSE_FLOOD,
+      hint: 'Лабиринт каждый раз новый. Звезда за кратчайший второй забег — если в первом мышь разведала достаточно; на некоторых картах это не удаётся даже лучшим мышам. Запусти ещё раз!',
+      solution: 'N = size()\nDX = [0, 1, 0, -1]\nDY = [-1, 0, 1, 0]\n\ndef flood():\n    dist = [[-1] * N for i in range(N)]\n    q = []\n    for y in range(N):\n        for x in range(N):\n            if is_goal(x, y):\n                dist[y][x] = 0\n                q.append((x, y))\n    while q:\n        x, y = q.pop(0)\n        for d in range(4):\n            if not wall(x, y, d):\n                nx = x + DX[d]\n                ny = y + DY[d]\n                if dist[ny][nx] < 0:\n                    dist[ny][nx] = dist[y][x] + 1\n                    q.append((nx, ny))\n    return dist\n\nwhile not at_goal():\n    dist = flood()\n    show(dist)\n    here = dist[y()][x()]\n    for d in range(4):\n        if not wall(x(), y(), d) and dist[y() + DY[d]][x() + DX[d]] == here - 1:\n            turn_to(d)\n            forward()\n            break'
     }
   ]
 };

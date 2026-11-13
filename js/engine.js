@@ -406,19 +406,31 @@
       return { k: 'while', cond, body, line: t.line };
     }
 
-    forStmt() {
-      const t = this.next();
-      const v = this.peek();
-      if (v.t !== 'name' || KEYWORDS.has(v.v)) throw this.err('после for нужно имя переменной: for i in range(5):');
-      this.next();
-      if (!this.isKw('in')) throw this.err('в цикле for нужно слово in: for ' + v.v + ' in range(...):');
+    // Переменные цикла: for i in ... или for x, y in ... (в цикле и в генераторе списка)
+    forTarget() {
+      const names = [];
+      for (;;) {
+        const v = this.peek();
+        if (v.t !== 'name' || KEYWORDS.has(v.v)) throw this.err('после for нужно имя переменной: for i in range(5):');
+        this.next();
+        names.push(v.v);
+        if (!this.isOp(',')) break;
+        this.next();
+      }
+      if (!this.isKw('in')) throw this.err('в цикле for нужно слово in: for ' + names.join(', ') + ' in range(...):');
       this.next();
       if (this.isOp(':')) throw this.err('после in нужно указать, по чему идёт цикл, например range(5)');
+      return names;
+    }
+
+    forStmt() {
+      const t = this.next();
+      const names = this.forTarget();
       const iter = this.expr();
       this.loops++;
       const body = this.block('for');
       this.loops--;
-      return { k: 'for', target: v.v, iter, body, line: t.line };
+      return { k: 'for', target: names[0], targets: names.length > 1 ? names : null, iter, body, line: t.line };
     }
 
     defStmt() {
@@ -635,6 +647,16 @@
         const items = [];
         while (!this.isOp(']')) {
           items.push(this.expr());
+          // генератор списка: [x * 2 for x in range(5) if x > 1]
+          if (items.length === 1 && this.isKw('for')) {
+            this.next();
+            const names = this.forTarget();
+            const iter = this.orTest();
+            let cond = null;
+            if (this.isKw('if')) { this.next(); cond = this.orTest(); }
+            this.expectOp(']', 'не хватает закрывающей скобки «]» в генераторе списка');
+            return { k: 'listcomp', elt: items[0], names, iter, cond, line: t.line };
+          }
           if (!this.isOp(',')) break;
           this.next();
         }
@@ -658,7 +680,7 @@
       switch (s.k) {
         case 'assign': s.targets.forEach(target); break;
         case 'aug': target(s.target); break;
-        case 'for': locals.add(s.target); collectNames(s.body, locals, globals); break;
+        case 'for': (s.targets || [s.target]).forEach(n => locals.add(n)); collectNames(s.body, locals, globals); break;
         case 'while': collectNames(s.body, locals, globals); break;
         case 'if': s.branches.forEach(b => collectNames(b.body, locals, globals)); if (s.orelse) collectNames(s.orelse, locals, globals); break;
         case 'def': locals.add(s.name); break;
@@ -914,6 +936,13 @@
     else ctx.vars[name] = v;
   }
 
+  // переменная цикла: одна (for i in ...) или несколько (for x, y in ...)
+  const forTuple = names => ({ k: 'tuple', items: names.map(v => ({ k: 'name', v })) });
+  function setFor(s, v, ctx) {
+    if (s.targets) assign(forTuple(s.targets), v, ctx);
+    else setVar(s.target, v, ctx);
+  }
+
   function assign(t, v, ctx) {
     if (t.k === 'name') { setVar(t.v, v, ctx); return; }
     if (t.k === 'index') {
@@ -1030,6 +1059,23 @@
     throw fail(ctx, 'у объекта типа ' + typeName(obj) + ' нет метода ' + name + '()');
   }
 
+  // Генератор списка. Переменные цикла, как в Python 3, не «вытекают» наружу.
+  // Каждый элемент — шаг программы, чтобы бесконечные и огромные списки останавливались лимитом шагов.
+  function listComp(n, ctx) {
+    const scope = ctx.vars, saved = n.names.map(v => [v, Object.prototype.hasOwnProperty.call(scope, v), scope[v]]);
+    const out = [];
+    try {
+      for (const v of Array.from(seqOf(evaluate(n.iter, ctx), ctx, true))) {
+        if (++ctx.steps > ctx.maxSteps) step(ctx, n.line);
+        if (n.names.length > 1) assign(forTuple(n.names), v, ctx); else scope[n.names[0]] = v;
+        if (!n.cond || truthy(evaluate(n.cond, ctx))) out.push(evaluate(n.elt, ctx));
+      }
+    } finally {
+      saved.forEach(([v, had, old]) => { if (had) scope[v] = old; else delete scope[v]; });
+    }
+    return out;
+  }
+
   function evaluate(n, ctx) {
     switch (n.k) {
       case 'num': return n.f ? new PyFloat(n.v) : n.v;
@@ -1038,6 +1084,7 @@
       case 'name': return lookup(n.v, ctx, false);
       case 'tuple': return new PyTuple(n.items.map(x => evaluate(x, ctx)));
       case 'list': return n.items.map(x => evaluate(x, ctx));
+      case 'listcomp': return listComp(n, ctx);
       case 'fstr': return n.parts.map(p => (typeof p === 'string' ? p : formatSpec(evaluate(p.e, ctx), p.spec, ctx))).join('');
       case 'or': { const a = evaluate(n.a, ctx); return truthy(a) ? a : evaluate(n.b, ctx); }
       case 'and': { const a = evaluate(n.a, ctx); return truthy(a) ? evaluate(n.b, ctx) : a; }
@@ -1211,7 +1258,7 @@
         if (Array.isArray(seq)) {
           // список проходим «вживую», как в Python
           for (let i = 0; i < seq.length; i++) {
-            setVar(s.target, seq[i], ctx);
+            setFor(s, seq[i], ctx);
             ctx.line = s.line;
             yield step(ctx, s.line);
             const r = yield* execBlock(s.body, ctx);
@@ -1220,7 +1267,7 @@
           }
         } else {
           for (const v of seq) {
-            setVar(s.target, v, ctx);
+            setFor(s, v, ctx);
             ctx.line = s.line;
             yield step(ctx, s.line);
             const r = yield* execBlock(s.body, ctx);
