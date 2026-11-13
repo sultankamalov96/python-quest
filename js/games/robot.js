@@ -1,6 +1,7 @@
 /* Игра «Робот на клетчатом поле».
    RobotSim — модель мира (без DOM): используется игрой и tests.html.
-   Карта: # стена, . пусто, R робот, $ монета, O яма, F финиш. Край поля — тоже стена. */
+   Карта: # стена, . пусто, R робот, $ монета, O яма, F финиш, P клетку нужно закрасить,
+   K ключ, D закрытая дверь. Край поля — тоже стена. */
 const RobotSim = (function () {
   'use strict';
   const DIRS = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] };
@@ -23,11 +24,13 @@ const RobotSim = (function () {
   function world(map, dir) {
     const grid = map.map(row => row.split(''));
     let x = 0, y = 0, coins = 0;
+    const targets = new Set();   // клетки, которые нужно закрасить
     grid.forEach((row, j) => row.forEach((c, i) => {
       if (c === 'R') { x = i; y = j; row[i] = '.'; }
       if (c === '$') coins++;
+      if (c === 'P') { targets.add(i + ',' + j); row[i] = '.'; }
     }));
-    return { grid, x, y, dir: dir || 'E', coins, taken: 0, moves: 0, startX: x, startY: y };
+    return { grid, x, y, dir: dir || 'E', coins, taken: 0, moves: 0, startX: x, startY: y, targets, painted: new Set(), keys: 0 };
   }
 
   function cell(W, x, y) {
@@ -43,44 +46,72 @@ const RobotSim = (function () {
   const noArgs = (name, args) => {
     if (args.length) throw new Error(t('robot.1') + name + t('robot.2'));
   };
+  const turnOf = (dir, k) => ORDER[(ORDER.indexOf(dir) + k) % 4];
+  // клетка слева или справа от робота (k = 3 — налево, 1 — направо)
+  const side = (W, k) => { const [dx, dy] = DIRS[turnOf(W.dir, k)]; return cell(W, W.x + dx, W.y + dy); };
+  const allPainted = W => Array.from(W.targets).every(k => W.painted.has(k));
 
   // Команды и датчики робота для интерпретатора. onAct(тип) вызывается при каждом действии.
   function builtins(W, onAct) {
     const act = k => { if (onAct) onAct(k); };
     return {
+      // forward() — шаг, forward(3) — три шага подряд
       forward(...a) {
-        noArgs('forward', a);
-        const [nx, ny] = ahead(W);
-        const c = cell(W, nx, ny);
-        if (c === '#') { W.crash = true; act('crash'); throw new Error(t('robot.3')); }
-        W.x = nx; W.y = ny; W.moves++;
-        if (c === 'O') { W.fell = true; act('fall'); throw new Error(t('robot.4')); }
+        if (a.length > 1 || (a.length === 1 && !(Number.isInteger(a[0]) && a[0] >= 1 && a[0] <= SIZE))) throw new Error(t('robot.38'));
+        const n = a.length ? a[0] : 1;
+        for (let k = 0; k < n; k++) {
+          const [nx, ny] = ahead(W);
+          const c = cell(W, nx, ny);
+          if (c === '#') { W.crash = true; act('crash'); throw new Error(t('robot.3')); }
+          if (c === 'D') { W.crash = true; act('crash'); throw new Error(t('robot.39')); }
+          W.x = nx; W.y = ny; W.moves++;
+          if (c === 'O') { W.fell = true; act('fall'); throw new Error(t('robot.4')); }
+        }
         act('move');
       },
-      left(...a) { noArgs('left', a); W.dir = ORDER[(ORDER.indexOf(W.dir) + 3) % 4]; act('turn'); },
-      right(...a) { noArgs('right', a); W.dir = ORDER[(ORDER.indexOf(W.dir) + 1) % 4]; act('turn'); },
+      left(...a) { noArgs('left', a); W.dir = turnOf(W.dir, 3); act('turn'); },
+      right(...a) { noArgs('right', a); W.dir = turnOf(W.dir, 1); act('turn'); },
+      // взять монету или ключ
       take(...a) {
         noArgs('take', a);
-        if (cell(W, W.x, W.y) !== '$') throw new Error(t('robot.5'));
+        const c = cell(W, W.x, W.y);
+        if (c !== '$' && c !== 'K') throw new Error(t('robot.5'));
         W.grid[W.y][W.x] = '.';
-        W.taken++;
-        act('coin');
+        if (c === '$') { W.taken++; act('coin'); } else { W.keys++; act('key'); }
+      },
+      paint(...a) { noArgs('paint', a); W.painted.add(W.x + ',' + W.y); act('paint'); },
+      // открыть дверь впереди — нужен ключ
+      open(...a) {
+        noArgs('open', a);
+        const [nx, ny] = ahead(W);
+        if (cell(W, nx, ny) !== 'D') throw new Error(t('robot.40'));
+        if (!W.keys) throw new Error(t('robot.41'));
+        W.keys--;
+        W.grid[ny][nx] = '.';
+        act('door');
       },
       wall_ahead(...a) { noArgs('wall_ahead', a); return cell(W, ...ahead(W)) === '#'; },
+      wall_left(...a) { noArgs('wall_left', a); return side(W, 3) === '#'; },
+      wall_right(...a) { noArgs('wall_right', a); return side(W, 1) === '#'; },
       hole_ahead(...a) { noArgs('hole_ahead', a); return cell(W, ...ahead(W)) === 'O'; },
+      door_ahead(...a) { noArgs('door_ahead', a); return cell(W, ...ahead(W)) === 'D'; },
       coin_here(...a) { noArgs('coin_here', a); return cell(W, W.x, W.y) === '$'; },
+      key_here(...a) { noArgs('key_here', a); return cell(W, W.x, W.y) === 'K'; },
+      need_paint(...a) { noArgs('need_paint', a); const k = W.x + ',' + W.y; return W.targets.has(k) && !W.painted.has(k); },
       at_finish(...a) { noArgs('at_finish', a); return cell(W, W.x, W.y) === 'F'; }
     };
   }
 
   const atFinish = W => cell(W, W.x, W.y) === 'F';
+  // уровень пройден: робот на флажке и все отмеченные клетки закрашены
+  const won = W => atFinish(W) && allPainted(W);
 
   function countLines(code) {
     return code.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
   }
 
   function stars(W, level, code) {
-    if (!atFinish(W)) return 0;
+    if (!won(W)) return 0;
     let s = 1;
     if (W.taken === W.coins) s++;
     if (!level.maxLines || countLines(code) <= level.maxLines) s++;
@@ -188,7 +219,50 @@ const RobotSim = (function () {
     return { map: toMap(g), dir };
   }
 
-  const GENERATORS = { corridor: genCorridor, snake: genSnake, lanes: genLanes, maze: genMaze };
+  // Извилистая тропа, на которой нужно закрасить случайные клетки и собрать монеты
+  function genPaint(r) {
+    const m = genSnake(r);
+    const g = m.map.map(row => row.split(''));
+    let painted = 0;
+    g.forEach(row => row.forEach((c, i) => {
+      if (c !== '.') return;
+      const v = r();
+      if (v < 0.35) { row[i] = 'P'; painted++; } else if (v < 0.55) row[i] = '$';
+    }));
+    if (!painted) g.some(row => row.some((c, i) => (c === '.' || c === '$') && (row[i] = 'P')));
+    return { map: toMap(g), dir: m.dir };
+  }
+
+  // Коридор с дверями: перед каждой дверью где-то лежит ключ
+  function genDoors(r) {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const c = genCorridor(r);
+      const g = c.map.map(row => row.split(''));
+      const path = [];
+      let x = 0, y = 0;
+      g.forEach((row, j) => row.forEach((ch, i) => { if (ch === 'R') { x = i; y = j; } }));
+      const [dx, dy] = DIRS[c.dir];
+      while (g[y] && g[y][x] && g[y][x] !== '#') { path.push([x, y]); if (g[y][x] === 'F') break; x += dx; y += dy; }
+      if (path.length < 6) continue;
+      const inner = path.slice(1, -1);
+      inner.forEach(([i, j]) => { g[j][i] = r() < 0.3 ? '$' : '.'; });
+      // 1–2 двери, ключ — на одной из клеток до двери
+      const doors = r() < 0.5 || inner.length < 5 ? 1 : 2;
+      let from = 0, ok = true;
+      for (let d = 0; d < doors; d++) {
+        const lo = from + 1, hi = inner.length - 1 - (doors - 1 - d) * 2;
+        if (hi < lo) { ok = false; break; }
+        const di = ri(r, lo, hi), ki = ri(r, from, di - 1);
+        g[inner[di][1]][inner[di][0]] = 'D';
+        g[inner[ki][1]][inner[ki][0]] = 'K';
+        from = di + 1;
+      }
+      if (ok) return { map: toMap(g), dir: c.dir };
+    }
+    return { map: ['........', '........', '........', 'RK.D...F', '........', '........', '........', '........'], dir: 'E' };
+  }
+
+  const GENERATORS = { corridor: genCorridor, snake: genSnake, lanes: genLanes, maze: genMaze, paint: genPaint, doors: genDoors };
 
   // Карта уровня: фиксированная или новая случайная
   function mapFor(level, seed) {
@@ -201,10 +275,10 @@ const RobotSim = (function () {
     const m = mapFor(level, seed);
     const W = world(m.map, m.dir);
     const r = Py.run(code, { builtins: builtins(W) });
-    return { ok: r.ok, error: r.error, win: r.ok && atFinish(W), stars: r.ok ? stars(W, level, code) : 0, world: W, map: m.map };
+    return { ok: r.ok, error: r.error, win: r.ok && won(W), stars: r.ok ? stars(W, level, code) : 0, world: W, map: m.map };
   }
 
-  return { world, builtins, cell, atFinish, stars, countLines, mapFor, run, rng, SIZE, DIRS };
+  return { world, builtins, cell, atFinish, won, allPainted, stars, countLines, mapFor, run, rng, SIZE, DIRS };
 })();
 
 // ======================================================================= игра
@@ -214,6 +288,7 @@ if (typeof Games !== 'undefined') Games.register('robot', {
     { title: t('robot.6'), text: t('robot.7'), code: 'forward()\nforward()\nright()\nforward()' },
     { title: t('robot.8'), text: t('robot.9'), code: 'if coin_here():\n    take()' },
     { title: t('robot.10'), text: t('robot.11'), code: 'while not at_finish():\n    if wall_ahead():\n        right()\n    else:\n        forward()' },
+    { title: t('robot.42'), text: t('robot.43'), code: 'forward(3)\nif need_paint():\n    paint()\nif door_ahead():\n    open()' },
     { title: t('stars'), text: t('robot.12') }
   ],
 
@@ -270,9 +345,11 @@ if (typeof Games !== 'undefined') Games.register('robot', {
     function drawBoard() {
       board.innerHTML = '';
       W.grid.forEach((row, y) => row.forEach((c, x) => {
-        const cls = c === '#' ? 'wall' : c === 'O' ? 'hole' : c === 'F' ? 'finish' : '';
-        board.append(h('div', { class: 'rb-cell ' + cls + ((x + y) % 2 ? ' odd' : ''), 'data-xy': x + ',' + y },
-          c === '$' ? h('span', { class: 'rb-coin' }, '🪙') : c === 'F' ? '🚩' : c === 'O' ? '🕳️' : null));
+        const cls = c === '#' ? 'wall' : c === 'O' ? 'hole' : c === 'F' ? 'finish' : c === 'D' ? 'door' : '';
+        const k = x + ',' + y;
+        const paint = W.painted.has(k) ? ' painted' : W.targets.has(k) ? ' target' : '';
+        board.append(h('div', { class: 'rb-cell ' + cls + paint + ((x + y) % 2 ? ' odd' : ''), 'data-xy': k },
+          c === '$' ? h('span', { class: 'rb-coin' }, '🪙') : c === 'K' ? h('span', { class: 'rb-coin' }, '🔑') : c === 'D' ? '🚪' : c === 'F' ? '🚩' : c === 'O' ? '🕳️' : null));
       }));
       board.append(robotEl);
       placeRobot(true);
@@ -297,6 +374,7 @@ if (typeof Games !== 'undefined') Games.register('robot', {
       const lines = RobotSim.countLines(editor.getValue());
       const items = [
         [t('robot.23'), W && RobotSim.atFinish(W)],
+        ...(W && W.targets.size ? [[t('robot.44', { n: Array.from(W.targets).filter(k => W.painted.has(k)).length, total: W.targets.size }), RobotSim.allPainted(W)]] : []),
         [W && W.coins ? t('robot.24') + (W ? W.taken : 0) + t('app.1') + W.coins + ')' : t('robot.25'), W && W.taken === W.coins],
         [t('robot.26') + L.maxLines + t('robot.27') + lines + ')', lines <= L.maxLines && lines > 0]
       ];
@@ -377,11 +455,22 @@ if (typeof Games !== 'undefined') Games.register('robot', {
       if (r.done) return done();
       editor.setActive(r.value.line);
       placeRobot(false);
-      if (lastAct === 'coin') { Sound.play('coin'); drawCoinTaken(); drawGoals(); }
+      if (lastAct === 'coin' || lastAct === 'key') { Sound.play('coin'); drawCoinTaken(); drawGoals(); }
+      else if (lastAct === 'paint') { Sound.play('click'); drawCell(); drawGoals(); }
+      else if (lastAct === 'door') { Sound.play('ok'); drawCell(true); }
       else if (lastAct === 'move') Sound.play('step');
       if (single) { runBtn.disabled = false; return; }
       const d = SPEED[speed - 1];
       timer = setTimeout(() => tick(false), lastAct ? d : Math.round(d / 4));
+    }
+
+    // клетка под роботом закрашена или дверь впереди открыта
+    function drawCell(door) {
+      const [x, y] = door ? [W.x + RobotSim.DIRS[W.dir][0], W.y + RobotSim.DIRS[W.dir][1]] : [W.x, W.y];
+      const el = board.querySelector('[data-xy="' + x + ',' + y + '"]');
+      if (!el) return;
+      if (door) { el.classList.remove('door'); el.textContent = ''; }
+      else { el.classList.remove('target'); el.classList.add('painted'); }
     }
 
     function drawCoinTaken() {
@@ -408,6 +497,11 @@ if (typeof Games !== 'undefined') Games.register('robot', {
       setRunning(false);
       editor.setActive(0);
       drawGoals();
+      if (RobotSim.atFinish(W) && !RobotSim.allPainted(W)) {
+        setStatus(t('robot.45'), 'bad');
+        Sound.play('bad');
+        return;
+      }
       if (!RobotSim.atFinish(W)) {
         setStatus(t('robot.29'), 'bad');
         Sound.play('bad');

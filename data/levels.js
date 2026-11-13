@@ -6,6 +6,9 @@ const ROBOT_CMD = ['forward()', 'left()', 'right()', 'take()'];
 const ROBOT_FOR = ROBOT_CMD.concat(['for i in range(3):']);
 const ROBOT_IF = ROBOT_FOR.concat(['if coin_here():', 'if wall_ahead():', 'if hole_ahead():', 'else:']);
 const ROBOT_WHILE = ROBOT_IF.concat(['while not at_finish():', 'while not wall_ahead():', 'not']);
+// новые команды: шаги с числом, краска, ключи и двери, стены сбоку
+const ROBOT_NEW = ROBOT_WHILE.concat(['forward(3)', 'paint()', 'open()', 'if need_paint():', 'if key_here():', 'if door_ahead():']);
+const ROBOT_SIDES = ROBOT_NEW.concat(['if not wall_right():', 'if not wall_left():', 'elif']);
 
 const LEVELS = {
   /* ------------------------------------------------------------------ Магазин на базаре
@@ -219,9 +222,10 @@ const LEVELS = {
     }
   ],
   /* ------------------------------------------------------------------ Робот
-     map: 8 строк по 8 символов: # стена, . пусто, R робот, $ монета, O яма, F финиш
+     map: 8 строк по 8 символов: # стена, . пусто, R робот, $ монета, O яма, F финиш,
+          P клетку нужно закрасить (paint()), K ключ, D дверь (open())
      dir: куда смотрит робот (N, E, S, W); maxLines — строк для третьей звезды
-     random: 'corridor' | 'snake' | 'lanes' | 'maze' — карта генерируется при каждом запуске */
+     random: 'corridor' | 'snake' | 'lanes' | 'maze' | 'paint' | 'doors' — карта генерируется при каждом запуске */
   robot: [
     {
       title: 'Первые шаги', dir: 'E', maxLines: 4, allowed: ROBOT_CMD,
@@ -339,6 +343,65 @@ const LEVELS = {
       title: '🎲 Настоящий лабиринт', maxLines: 5, allowed: ROBOT_WHILE.concat(['while wall_ahead():']), random: 'maze',
       hint: 'Правило правой руки: на каждом шаге поверни направо, а пока впереди стена — поворачивай налево. Потом шаг. Так проходится любой лабиринт без колец!',
       solution: 'while not at_finish():\n    right()\n    while wall_ahead():\n        left()\n    forward()'
+    },
+    // ---------------------------------------------------------------- новые команды
+    {
+      title: 'Шаги с числом', dir: 'E', maxLines: 3, allowed: ROBOT_CMD.concat(['forward(3)']),
+      hint: 'У `forward` можно указать число шагов: `forward(6)` — шесть шагов подряд. Хватит трёх строк!',
+      map: ['........', '........', '......F.', '........', '........', '........', '........', 'R.......'],
+      solution: 'forward(6)\nleft()\nforward(5)'
+    },
+    {
+      title: 'Кисточка', dir: 'E', maxLines: 4, allowed: ROBOT_NEW,
+      hint: 'Клетки с рамкой нужно закрасить 🎨: встань на клетку и выполни `paint()`. Флажок засчитается, только когда закрашено всё.',
+      map: ['........', '........', '........', 'RPPPPPPF', '........', '........', '........', '........'],
+      solution: 'for i in range(6):\n    forward()\n    paint()\nforward()'
+    },
+    {
+      title: 'Краска и монеты', dir: 'E', maxLines: 6, allowed: ROBOT_NEW,
+      hint: 'Датчик `need_paint()` отвечает True, если клетку под роботом нужно закрасить. Монеты тоже подбирай!',
+      map: ['........', '........', '........', '........', 'RP$P.$PF', '........', '........', '........'],
+      solution: 'while not at_finish():\n    forward()\n    if need_paint():\n        paint()\n    if coin_here():\n        take()'
+    },
+    {
+      title: 'Рамка', dir: 'E', maxLines: 6, allowed: ROBOT_NEW,
+      hint: 'Закрась три стороны рамки по 5 клеток, потом шаг к флажку. Цикл внутри цикла!',
+      map: ['........', '.RPPPPP.', '..####P.', '..####P.', '..####P.', '.F####P.', '.PPPPPP.', '........'],
+      solution: 'for i in range(3):\n    for j in range(5):\n        forward()\n        paint()\n    right()\nforward()'
+    },
+    {
+      title: 'Ключ от двери', dir: 'E', maxLines: 5, allowed: ROBOT_NEW,
+      hint: 'Дверь 🚪 закрыта. Возьми ключ 🔑 командой `take()`, подойди к двери и открой её: `open()`.',
+      map: ['........', '........', '........', 'R.K.D..F', '........', '........', '........', '........'],
+      solution: 'forward(2)\ntake()\nforward()\nopen()\nforward(4)'
+    },
+    {
+      title: 'Двери на пути', dir: 'E', maxLines: 6, allowed: ROBOT_NEW,
+      hint: 'Две двери и два ключа. Датчики `key_here()` и `door_ahead()` подскажут, когда брать ключ и когда открывать.',
+      map: ['........', '........', '........', 'RK.DK.DF', '........', '........', '........', '........'],
+      solution: 'while not at_finish():\n    if key_here():\n        take()\n    if door_ahead():\n        open()\n    forward()'
+    },
+    {
+      title: 'Правая рука', dir: 'S', maxLines: 8, allowed: ROBOT_SIDES,
+      hint: 'Держись правой стены: если справа нет стены — поверни направо и шагни; иначе если впереди свободно — шагни; иначе поверни налево. `wall_right()` — стена справа? `elif` — «иначе если».',
+      map: ['......##', '.####.##', '...F#.##', '#####...', '.....##.', '.###.##.', '.#R#.##.', '...#....'],
+      solution: 'while not at_finish():\n    if not wall_right():\n        right()\n        forward()\n    elif not wall_ahead():\n        forward()\n    else:\n        left()'
+    },
+    {
+      title: 'Левая рука', dir: 'S', maxLines: 8, allowed: ROBOT_SIDES,
+      hint: 'Теперь держись левой стены — датчик `wall_left()`. Программа как в прошлом уровне, только право и лево меняются местами.',
+      map: ['R#.....#', '.#.###.#', '.#.#...#', '.###.#.#', '.....#.#', '######.#', '......F#', '########'],
+      solution: 'while not at_finish():\n    if not wall_left():\n        left()\n        forward()\n    elif not wall_ahead():\n        forward()\n    else:\n        right()'
+    },
+    {
+      title: '🎲 Мастер красок', maxLines: 12, allowed: ROBOT_SIDES, random: 'paint',
+      hint: 'Тропа каждый раз новая, клетки для краски и монеты — тоже. Объедини всё: возьми монету, закрась клетку, а на повороте — как на «Извилистой тропе».',
+      solution: 'while not at_finish():\n    if coin_here():\n        take()\n    if need_paint():\n        paint()\n    if wall_ahead():\n        right()\n        if wall_ahead():\n            left()\n            left()\n    else:\n        forward()'
+    },
+    {
+      title: '🎲 Замок', maxLines: 8, allowed: ROBOT_SIDES, random: 'doors',
+      hint: 'Случайный коридор с дверями. Перед каждой дверью где-то лежит ключ. Собирай монеты, ключи и открывай все двери.',
+      solution: 'while not at_finish():\n    if coin_here():\n        take()\n    if key_here():\n        take()\n    if door_ahead():\n        open()\n    forward()'
     }
   ]
 };

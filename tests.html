@@ -26,26 +26,26 @@
 <div id="total" class="summary"></div>
 <div id="out"></div>
 
-<script src="data/config.js?v=20261112"></script>
-<script src="js/i18n.js?v=20261112"></script>
-<script src="data/tasks.js?v=20261112"></script>
-<script src="data/levels.js?v=20261112"></script>
-<script src="data/quiz.js?v=20261112"></script>
-<script src="data/exams.js?v=20261112"></script>
-<script src="data/exams_dart.js?v=20261112"></script>
-<script src="js/engine.js?v=20261112"></script>
-<script src="js/pictures.js?v=20261112"></script>
-<script src="js/flowchart.js?v=20261112"></script>
-<script src="js/games/robot.js?v=20261112"></script>
-<script src="js/games/truefalse.js?v=20261112"></script>
-<script src="js/games/count.js?v=20261112"></script>
-<script src="js/games/turtle.js?v=20261112"></script>
-<script src="js/games/tracer.js?v=20261112"></script>
-<script src="js/games/memory.js?v=20261112"></script>
-<script src="js/games/quiz.js?v=20261112"></script>
-<script src="js/games/duel.js?v=20261112"></script>
-<script src="js/games/minesweeper.js?v=20261112"></script>
-<script src="js/games/bazaar.js?v=20261112"></script>
+<script src="data/config.js?v=20261113"></script>
+<script src="js/i18n.js?v=20261113"></script>
+<script src="data/tasks.js?v=20261113"></script>
+<script src="data/levels.js?v=20261113"></script>
+<script src="data/quiz.js?v=20261113"></script>
+<script src="data/exams.js?v=20261113"></script>
+<script src="data/exams_dart.js?v=20261113"></script>
+<script src="js/engine.js?v=20261113"></script>
+<script src="js/pictures.js?v=20261113"></script>
+<script src="js/flowchart.js?v=20261113"></script>
+<script src="js/games/robot.js?v=20261113"></script>
+<script src="js/games/truefalse.js?v=20261113"></script>
+<script src="js/games/count.js?v=20261113"></script>
+<script src="js/games/turtle.js?v=20261113"></script>
+<script src="js/games/tracer.js?v=20261113"></script>
+<script src="js/games/memory.js?v=20261113"></script>
+<script src="js/games/quiz.js?v=20261113"></script>
+<script src="js/games/duel.js?v=20261113"></script>
+<script src="js/games/minesweeper.js?v=20261113"></script>
+<script src="js/games/bazaar.js?v=20261113"></script>
 <script>
 // ------------------------------------------------------------------ тесты интерпретатора
 // out — ожидаемый вывод (точно), err — подстрока ожидаемой ошибки
@@ -551,13 +551,13 @@ function checkExams(section) {
 
 function checkRobot(section) {
   const L = LEVELS.robot || [];
-  const s = section('Робот: уровни (' + L.length + ', нужно 20)');
-  s.items.push({ name: 'количество уровней = 20', ok: L.length === 20 });
+  const s = section('Робот: уровни (' + L.length + ', нужно 30)');
+  s.items.push({ name: 'количество уровней = 30', ok: L.length === 30 });
   L.forEach((lv, i) => {
     const errs = [], info = [];
     if (!lv.random) {
-      const okMap = lv.map.length === 8 && lv.map.every(r => r.length === 8 && /^[#.R$OF]+$/.test(r));
-      if (!okMap) errs.push('карта должна быть 8×8 из символов # . R $ O F');
+      const okMap = lv.map.length === 8 && lv.map.every(r => r.length === 8 && /^[#.R$OFPKD]+$/.test(r));
+      if (!okMap) errs.push('карта должна быть 8×8 из символов # . R $ O F P K D');
       if (lv.map.join('').split('R').length !== 2) errs.push('на карте должен быть ровно один робот R');
       const r = RobotSim.run(lv, lv.solution);
       if (!r.win) errs.push('эталон не доходит до финиша: ' + (r.error || 'программа закончилась раньше'));

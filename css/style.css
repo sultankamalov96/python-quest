@@ -658,6 +658,10 @@ pre.code {
 .rb-cell.wall { background: #5b6178; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .25); }
 .rb-cell.finish { background: #fff2c7; }
 .rb-cell.hole { background: #3b2f2a; }
+/* клетка, которую нужно закрасить, закрашенная клетка и дверь */
+.rb-cell.target { box-shadow: inset 0 0 0 3px #a855f7; }
+.rb-cell.painted, .rb-cell.painted.odd { background: #c4a5f5; }
+.rb-cell.door { background: #a8763e; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .25); }
 :root[data-theme="dark"] .rb-cell { background: #1f3326; }
 :root[data-theme="dark"] .rb-cell.odd { background: #1a2c21; }
 :root[data-theme="dark"] .rb-cell.wall { background: #474d66; }
@@ -1320,3 +1324,11 @@ pre.code {
 .vis-status.warn { background: var(--warn-bg); }
 .warn-text { background: var(--warn-bg); color: var(--fg); padding: 6px 10px; border-radius: 8px; font-weight: 700; margin: 0; }
 .btn.vis-dirty { box-shadow: 0 0 0 3px var(--accent); }
+
+/* Робот: закрашенные клетки и дверь в тёмной теме */
+:root[data-theme="dark"] .rb-cell.painted { background: #6d4aa8; }
+:root[data-theme="dark"] .rb-cell.door { background: #7a5326; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .rb-cell.painted { background: #6d4aa8; }
+  :root:not([data-theme="light"]) .rb-cell.door { background: #7a5326; }
+}
