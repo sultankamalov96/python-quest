@@ -464,6 +464,7 @@ function mouseLevel(host, ctx) {
     const met = MouseSim.goalsMet(L, full);
     const stars = met.filter(Boolean).length;
     drawGoals(met);
+    setStatus('🏁 ' + t('mouse.winSteps', { a: res.run1.moves, b: res.run2.moves, c: best }), 'ok');
     // пунктир кратчайшего пути поверх следа второго забега
     board.draw(W, { reveal: true, all: true });
     board.setLines([[res.run1.path, 'mo-trail r1'], [res.run2.path, 'mo-trail'], [MouseSim.shortestPath(maze), 'mo-best']]);
